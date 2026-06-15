@@ -53,6 +53,8 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         if (shouldMigrateLegacyMealUnits) {
             migrateLegacyMealUnits();
         }
+        normalizeInvalidUnits();
+        normalizeFoodNutritionScale();
         dropIndexIfExists("meal_logs", "uk_meal_logs_date_type");
         dropIndexIfExists("cycle_macro_settings", "cycle_type");
         dropUniqueIndexByColumns("meal_logs", "log_date,meal_type");
@@ -89,6 +91,42 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                 UPDATE meal_log_items
                 SET quantity = grams,
                     unit_name = '克'
+                """);
+    }
+
+    /** 扫描并修复历史空单位或无效单位重量。 */
+    private void normalizeInvalidUnits() {
+        jdbcTemplate.update("""
+                UPDATE foods
+                SET unit_name = '克',
+                    unit_weight = 1,
+                    protein = protein / 100,
+                    carbs = carbs / 100,
+                    fat = fat / 100,
+                    calories = calories / 100
+                WHERE unit_weight IS NULL OR unit_weight <= 0
+                   OR unit_name IS NULL OR TRIM(unit_name) = ''
+                """);
+        jdbcTemplate.update("""
+                UPDATE meal_log_items
+                SET unit_name = '克'
+                WHERE unit_name IS NULL OR TRIM(unit_name) = ''
+                """);
+        jdbcTemplate.update("""
+                UPDATE meal_log_items
+                SET quantity = grams
+                WHERE quantity <= 0 AND grams > 0
+                """);
+    }
+
+    /** 扫描并保留食材营养字段三位小数。 */
+    private void normalizeFoodNutritionScale() {
+        jdbcTemplate.update("""
+                UPDATE foods
+                SET protein = ROUND(protein, 3),
+                    carbs = ROUND(carbs, 3),
+                    fat = ROUND(fat, 3),
+                    calories = ROUND(calories, 3)
                 """);
     }
 

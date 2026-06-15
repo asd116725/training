@@ -1,6 +1,6 @@
 package com.training.config;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.ResultSet;
@@ -29,14 +29,16 @@ class SchemaUpgradeRunnerTest {
 
         runner.run(null);
 
-        assertTrue(jdbcTemplate.hasExecuted("protein = protein / 100"));
-        assertTrue(jdbcTemplate.hasExecuted("quantity = grams"));
+        assertEquals(2, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(2, jdbcTemplate.countExecuted("quantity = grams"));
+        assertTrue(jdbcTemplate.hasExecuted("TRIM(unit_name) = ''"));
 
         jdbcTemplate.clearSql();
         runner.run(null);
 
-        assertFalse(jdbcTemplate.hasExecuted("protein = protein / 100"));
-        assertFalse(jdbcTemplate.hasExecuted("quantity = grams"));
+        assertEquals(1, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(1, jdbcTemplate.countExecuted("quantity = grams"));
+        assertTrue(jdbcTemplate.hasExecuted("TRIM(unit_name) = ''"));
     }
 
     /** 记录 SQL 的 JDBC 测试替身。 */
@@ -61,6 +63,11 @@ class SchemaUpgradeRunnerTest {
         /** 判断是否执行过包含指定片段的 SQL。 */
         boolean hasExecuted(String sqlPart) {
             return sqls.stream().anyMatch(sql -> sql.contains(sqlPart));
+        }
+
+        /** 统计包含指定片段的 SQL 数量。 */
+        long countExecuted(String sqlPart) {
+            return sqls.stream().filter(sql -> sql.contains(sqlPart)).count();
         }
 
         /** 模拟单值查询。 */

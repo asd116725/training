@@ -61,6 +61,20 @@ SET unit_name = '克',
     fat = fat / 100,
     calories = calories / 100
 WHERE @should_migrate_food_units = 1;
+UPDATE foods
+SET unit_name = '克',
+    unit_weight = 1,
+    protein = protein / 100,
+    carbs = carbs / 100,
+    fat = fat / 100,
+    calories = calories / 100
+WHERE unit_weight IS NULL OR unit_weight <= 0
+   OR unit_name IS NULL OR TRIM(unit_name) = '';
+UPDATE foods
+SET protein = ROUND(protein, 3),
+    carbs = ROUND(carbs, 3),
+    fat = ROUND(fat, 3),
+    calories = ROUND(calories, 3);
 ALTER TABLE meal_logs ADD COLUMN user_id BIGINT NULL;
 SET @should_migrate_meal_units = (
   SELECT COUNT(*) = 0
@@ -89,6 +103,12 @@ UPDATE meal_log_items
 SET quantity = grams,
     unit_name = '克'
 WHERE @should_migrate_meal_units = 1;
+UPDATE meal_log_items
+SET unit_name = '克'
+WHERE unit_name IS NULL OR TRIM(unit_name) = '';
+UPDATE meal_log_items
+SET quantity = grams
+WHERE quantity <= 0 AND grams > 0;
 ALTER TABLE cycle_macro_settings ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE recommendation_prompts ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE recommendation_records ADD COLUMN user_id BIGINT NULL;

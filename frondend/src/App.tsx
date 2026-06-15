@@ -151,16 +151,29 @@ function getRouteFromPath(pathname: string): AppRoute {
 
 /** 将已校验的食材草稿转换为保存数据。 */
 function normalizeFoodFormValues(values: FoodFormDraftValues): FoodFormValues {
+  const unitName = values.unitName.trim()
+  const nutritionFactor = getFoodFormNutritionFactor(unitName)
+
   return {
     name: values.name,
-    unitName: values.unitName,
+    unitName,
     unitWeight: Number(values.unitWeight),
-    carbs: Number(values.carbs),
-    protein: Number(values.protein),
-    fat: Number(values.fat),
-    calories: Number(values.calories),
+    carbs: Number(values.carbs) / nutritionFactor,
+    protein: Number(values.protein) / nutritionFactor,
+    fat: Number(values.fat) / nutritionFactor,
+    calories: Number(values.calories) / nutritionFactor,
     remark: values.remark,
   }
+}
+
+/** 获取食材表单营养显示倍率。 */
+function getFoodFormNutritionFactor(unitName?: string) {
+  return unitName?.trim() === '克' ? 100 : 1
+}
+
+/** 转换食材营养为表单展示值。 */
+function toFoodFormNutritionValue(value: number, unitName: string) {
+  return value * getFoodFormNutritionFactor(unitName)
 }
 
 /** 获取本地缓存的导航页面。 */
@@ -869,10 +882,10 @@ function App() {
       name: food.name,
       unitName: food.unitName,
       unitWeight: food.unitWeight,
-      carbs: food.carbs,
-      protein: food.protein,
-      fat: food.fat,
-      calories: food.calories,
+      carbs: toFoodFormNutritionValue(food.carbs, food.unitName),
+      protein: toFoodFormNutritionValue(food.protein, food.unitName),
+      fat: toFoodFormNutritionValue(food.fat, food.unitName),
+      calories: toFoodFormNutritionValue(food.calories, food.unitName),
       remark: food.remark ?? '',
     })
     setIsFoodDrawerOpen(true)

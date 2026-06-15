@@ -208,9 +208,19 @@ export function calculateFoodGrams(food: Food, quantity: number) {
   return roundOne(quantity * food.unitWeight)
 }
 
+/** 标准化食材单位名称。 */
+export function normalizeFoodUnitName(unitName?: string) {
+  return unitName?.trim() || defaultFoodUnitName
+}
+
+/** 标准化食材单位重量。 */
+export function normalizeFoodUnitWeight(unitWeight?: number) {
+  return unitWeight && unitWeight > 0 ? unitWeight : defaultFoodUnitWeight
+}
+
 /** 按克数计算单个食材营养。 */
 export function calculateFoodNutrition(food: Food, grams: number): NutritionTotals {
-  const ratio = grams / food.unitWeight
+  const ratio = grams / normalizeFoodUnitWeight(food.unitWeight)
 
   return {
     calories: roundOne(food.calories * ratio),
@@ -237,15 +247,19 @@ export function sumNutrition(items: NutritionTotals[]): NutritionTotals {
 export function normalizeStoredFoods(foods: Food[]): Food[] {
   return foods.map((food) => {
     const legacyFood = food as Food & { unitName?: string; unitWeight?: number }
+    const hasUnitFields = legacyFood.unitName !== undefined || legacyFood.unitWeight !== undefined
+    const hasInvalidUnit = !legacyFood.unitName?.trim() || !legacyFood.unitWeight || legacyFood.unitWeight <= 0
+    const unitName = normalizeFoodUnitName(legacyFood.unitName)
+    const unitWeight = normalizeFoodUnitWeight(legacyFood.unitWeight)
 
-    if (legacyFood.unitName && legacyFood.unitWeight) {
-      return food
+    if (hasUnitFields && !hasInvalidUnit) {
+      return { ...food, unitName, unitWeight }
     }
 
     return {
       ...food,
-      unitName: defaultFoodUnitName,
-      unitWeight: defaultFoodUnitWeight,
+      unitName,
+      unitWeight,
       protein: food.protein / 100,
       carbs: food.carbs / 100,
       fat: food.fat / 100,
@@ -262,7 +276,7 @@ export function normalizeStoredEntries(entries: MealEntry[]): MealEntry[] {
     return {
       ...entry,
       quantity: legacyEntry.quantity ?? entry.grams,
-      unitName: legacyEntry.unitName ?? defaultFoodUnitName,
+      unitName: normalizeFoodUnitName(legacyEntry.unitName),
     }
   })
 }

@@ -146,7 +146,8 @@ class FoodServiceTest {
     void shouldCreateFoodForCurrentUser() {
         when(foodRepository.save(any(Food.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        foodService.createFood(new FoodRequest("牛肉", "份", 150, 34.5, 0, 4.5, 180, "一份约150g"));
+        FoodResponse response = foodService.createFood(new FoodRequest("牛肉", "份", 150, 34.5555, 0, 4.5444, 180.6666,
+                "一份约150g"));
 
         ArgumentCaptor<Food> captor = ArgumentCaptor.forClass(Food.class);
         verify(foodRepository).save(captor.capture());
@@ -154,6 +155,9 @@ class FoodServiceTest {
         assertEquals("牛肉", captor.getValue().name);
         assertEquals("份", captor.getValue().unitName);
         assertEquals(150, captor.getValue().unitWeight);
+        assertEquals(34.556, captor.getValue().protein);
+        assertEquals(4.544, captor.getValue().fat);
+        assertEquals(180.667, response.calories());
         assertEquals("一份约150g", captor.getValue().remark);
     }
 

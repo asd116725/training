@@ -47,7 +47,8 @@ public class FoodService {
     public FoodResponse createFood(FoodRequest request) {
         AppUser user = currentUserContext.get();
         Food food = foodRepository.save(new Food(user, request.name(), request.unitName(), request.unitWeight(),
-                request.protein(), request.carbs(), request.fat(), request.calories(), request.remark()));
+                roundThree(request.protein()), roundThree(request.carbs()), roundThree(request.fat()),
+                roundThree(request.calories()), request.remark()));
         return toResponse(food, true);
     }
 
@@ -61,7 +62,8 @@ public class FoodService {
         }
 
         Food food = foodRepository.save(new Food(user, source.name, source.unitName, source.unitWeight,
-                source.protein, source.carbs, source.fat, source.calories, source.remark));
+                roundThree(source.protein), roundThree(source.carbs), roundThree(source.fat),
+                roundThree(source.calories), source.remark));
         return toResponse(food, true);
     }
 
@@ -71,10 +73,10 @@ public class FoodService {
         food.name = request.name();
         food.unitName = request.unitName();
         food.unitWeight = request.unitWeight();
-        food.protein = request.protein();
-        food.carbs = request.carbs();
-        food.fat = request.fat();
-        food.calories = request.calories();
+        food.protein = roundThree(request.protein());
+        food.carbs = roundThree(request.carbs());
+        food.fat = roundThree(request.fat());
+        food.calories = roundThree(request.calories());
         food.remark = request.remark();
         return toResponse(foodRepository.save(food), true);
     }
@@ -103,7 +105,13 @@ public class FoodService {
 
     /** 转换食材响应。 */
     private FoodResponse toResponse(Food food, boolean owned) {
-        return new FoodResponse(food.id, food.name, food.unitName, food.unitWeight, food.protein, food.carbs, food.fat, food.calories,
+        return new FoodResponse(food.id, food.name, food.unitName, food.unitWeight, roundThree(food.protein),
+                roundThree(food.carbs), roundThree(food.fat), roundThree(food.calories),
                 food.remark == null ? "" : food.remark, owned);
+    }
+
+    /** 保留三位小数。 */
+    private double roundThree(double value) {
+        return Math.round(value * 1000) / 1000.0;
     }
 }

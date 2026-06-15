@@ -1,4 +1,8 @@
 import {
+  defaultFoodUnitName,
+  defaultFoodUnitWeight,
+  normalizeFoodUnitName,
+  normalizeFoodUnitWeight,
   normalizeCycleMacroSettings,
   type BulkingDayType,
   type CycleMacroSettings,
@@ -242,15 +246,17 @@ function notifyApiError(error: unknown) {
 
 /** 将后端食材转换为前端食材。 */
 function normalizeFood(food: FoodResponse): Food {
+  const hasInvalidUnit = !food.unitName?.trim() || !food.unitWeight || food.unitWeight <= 0
+
   return {
     id: String(food.id),
     name: food.name,
-    unitName: food.unitName ?? '克',
-    unitWeight: food.unitWeight ?? 1,
-    protein: food.protein,
-    carbs: food.carbs,
-    fat: food.fat,
-    calories: food.calories,
+    unitName: hasInvalidUnit ? defaultFoodUnitName : normalizeFoodUnitName(food.unitName),
+    unitWeight: hasInvalidUnit ? defaultFoodUnitWeight : normalizeFoodUnitWeight(food.unitWeight),
+    protein: hasInvalidUnit ? food.protein / 100 : food.protein,
+    carbs: hasInvalidUnit ? food.carbs / 100 : food.carbs,
+    fat: hasInvalidUnit ? food.fat / 100 : food.fat,
+    calories: hasInvalidUnit ? food.calories / 100 : food.calories,
     remark: food.remark ?? '',
     owned: Boolean(food.owned),
   }
@@ -294,7 +300,7 @@ function normalizeMealEntry(entry: MealEntryResponse): MealEntry {
     meal: mealTypeMap[entry.mealType] ?? 'breakfast',
     foodId: String(entry.foodId),
     quantity: entry.quantity ?? entry.grams,
-    unitName: entry.unitName ?? '克',
+    unitName: normalizeFoodUnitName(entry.unitName),
     grams: entry.grams,
   }
 }
