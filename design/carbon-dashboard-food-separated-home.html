@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>碳训计划首页一屏版</title>
+    <style>
+      :root {
+        --bg: #06110d;
+        --panel: rgba(14, 28, 21, 0.94);
+        --panel-deep: rgba(7, 17, 13, 0.97);
+        --line: rgba(76, 255, 144, 0.2);
+        --text: #eef7ef;
+        --muted: #7d9287;
+        --green: #27f47d;
+        --green-soft: #a5ff4f;
+        --amber: #ffad28;
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 78% 14%, rgba(255, 168, 40, 0.12), transparent 28%),
+          radial-gradient(circle at 24% 18%, rgba(39, 244, 125, 0.16), transparent 32%),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          "DIN Alternate",
+          "Avenir Next",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        background:
+          linear-gradient(rgba(67, 255, 139, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(67, 255, 139, 0.055) 1px, transparent 1px),
+          linear-gradient(rgba(67, 255, 139, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(67, 255, 139, 0.035) 1px, transparent 1px);
+        background-size:
+          40px 40px,
+          40px 40px,
+          8px 8px,
+          8px 8px;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.35));
+      }
+
+      .screen {
+        position: relative;
+        width: 1440px;
+        height: 900px;
+        margin: 0 auto;
+        padding: 24px 30px 28px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 270px 1fr 510px;
+        gap: 22px;
+        align-items: end;
+        height: 96px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        align-self: center;
+      }
+
+      .logo {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid rgba(39, 244, 125, 0.42);
+        border-radius: 10px;
+        color: var(--green);
+        background: rgba(39, 244, 125, 0.08);
+        box-shadow: 0 0 26px rgba(39, 244, 125, 0.24);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .brand-name {
+        margin: 0;
+        font-size: 23px;
+        line-height: 1;
+      }
+
+      .source {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .title-block {
+        align-self: center;
+      }
+
+      .eyebrow {
+        color: var(--amber);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .title {
+        margin: 7px 0 0;
+        font-size: 52px;
+        line-height: 0.95;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        align-self: center;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 104px;
+        height: 44px;
+        padding: 0 15px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 8px;
+        background: rgba(19, 34, 27, 0.92);
+        color: var(--text);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .chip.active {
+        color: #07150e;
+        background: linear-gradient(135deg, var(--green), var(--green-soft));
+        border-color: transparent;
+      }
+
+      .chip.link {
+        color: var(--green);
+        border-color: rgba(39, 244, 125, 0.34);
+      }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: 270px 1fr 330px;
+        grid-template-rows: 300px 422px;
+        gap: 16px;
+        height: 738px;
+        padding-top: 16px;
+      }
+
+      .panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(120, 255, 164, 0.22);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(17, 31, 24, 0.95), rgba(7, 16, 12, 0.97));
+        box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .panel::before {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 2px;
+        content: "";
+        background: linear-gradient(90deg, var(--green), rgba(255, 173, 40, 0.95));
+      }
+
+      .panel-inner {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        padding: 16px;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      .section-title h2 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1;
+      }
+
+      .section-title small {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .icon-label {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .icon-mark {
+        color: var(--green);
+        font-size: 18px;
+      }
+
+      .profile {
+        grid-row: 1 / 3;
+      }
+
+      .profile-grid {
+        display: grid;
+        gap: 9px;
+      }
+
+      .metric-row {
+        display: grid;
+        grid-template-columns: 82px 1fr;
+        align-items: center;
+        min-height: 39px;
+        padding: 8px 11px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .metric-row span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .metric-row strong {
+        color: var(--text);
+        font-size: 17px;
+      }
+
+      .profile-summary {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .summary-tile {
+        padding: 12px;
+        border-radius: 6px;
+        background: rgba(39, 244, 125, 0.08);
+      }
+
+      .summary-tile span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .summary-tile strong {
+        display: block;
+        margin-top: 7px;
+        color: var(--green);
+        font-size: 21px;
+        line-height: 1;
+      }
+
+      .nav-card {
+        margin-top: 14px;
+        padding: 13px;
+        border: 1px solid rgba(39, 244, 125, 0.26);
+        border-radius: 8px;
+        background: rgba(39, 244, 125, 0.06);
+      }
+
+      .nav-card strong {
+        display: block;
+        margin-bottom: 7px;
+        color: var(--green);
+        font-size: 15px;
+      }
+
+      .nav-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .primary {
+        grid-column: 2;
+      }
+
+      .mode-tabs {
+        display: inline-flex;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .mode-tabs span {
+        min-width: 74px;
+        padding: 9px 12px;
+        border-radius: 6px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .mode-tabs .active {
+        color: #07150e;
+        background: var(--green);
+      }
+
+      .hero-number {
+        display: grid;
+        grid-template-columns: 160px 160px 1fr;
+        overflow: hidden;
+        margin-bottom: 11px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 7px;
+      }
+
+      .number-card {
+        padding: 12px 16px;
+        border-right: 1px solid rgba(255, 255, 255, 0.09);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .number-card:last-child {
+        border-right: 0;
+        background: linear-gradient(135deg, rgba(255, 173, 40, 0.28), rgba(39, 244, 125, 0.08));
+      }
+
+      .number-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .number-card strong {
+        display: block;
+        margin-top: 5px;
+        color: var(--text);
+        font-size: 29px;
+        line-height: 1;
+      }
+
+      .number-card:last-child strong {
+        color: var(--amber);
+      }
+
+      .number-card em {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 900;
+      }
+
+      .progress-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .progress-item {
+        display: grid;
+        grid-template-columns: 72px 1fr 156px;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .progress-item b {
+        font-size: 15px;
+      }
+
+      .progress-track {
+        height: 9px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .progress-fill {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #20c86a, #3dff93);
+        box-shadow: 0 0 18px rgba(39, 244, 125, 0.24);
+      }
+
+      .progress-meta {
+        color: var(--muted);
+        text-align: right;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .recommend {
+        grid-column: 3;
+      }
+
+      .gap-card {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .gap-card div {
+        padding: 9px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .gap-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 900;
+      }
+
+      .gap-card strong {
+        display: block;
+        margin-top: 4px;
+        color: var(--amber);
+        font-size: 18px;
+      }
+
+      .rec-list {
+        display: grid;
+        gap: 7px;
+      }
+
+      .rec-item {
+        padding: 8px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .rec-item strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 13px;
+      }
+
+      .rec-item span {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .meals {
+        grid-column: 2 / 4;
+      }
+
+      .meal-toolbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .meal-actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
+        padding: 0 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .button.primary {
+        color: #06110d;
+        border: 0;
+        background: linear-gradient(135deg, var(--green), var(--green-soft));
+      }
+
+      .meal-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        height: 246px;
+      }
+
+      .meal-card {
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .meal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .meal-head strong {
+        font-size: 15px;
+      }
+
+      .meal-head span {
+        color: var(--amber);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .food-line {
+        display: grid;
+        gap: 2px;
+        min-height: 42px;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      .food-line b {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+
+      .food-line small {
+        color: var(--green);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .meal-foot {
+        margin-top: auto;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .empty-state {
+        display: grid;
+        flex: 1;
+        place-items: center;
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .daily-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .daily-tile {
+        padding: 13px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .daily-tile span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .daily-tile strong {
+        display: block;
+        margin-top: 6px;
+        color: var(--text);
+        font-size: 20px;
+      }
+
+      .daily-tile strong.good {
+        color: var(--green);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <header class="topbar">
+        <section class="brand">
+          <div class="logo">C</div>
+          <div>
+            <h1 class="brand-name">个人目标</h1>
+            <p class="source">资料来源：后端数据库</p>
+          </div>
+        </section>
+
+        <section class="title-block">
+          <div class="eyebrow">复古钛绿 · 碳循环 · 本地工具</div>
+          <h2 class="title">碳训计划</h2>
+        </section>
+
+        <section class="actions" aria-label="页面导航">
+          <div class="chip active">今日计划</div>
+          <div class="chip link">食材库</div>
+          <div class="chip">2026-06-09</div>
+          <div class="chip">中碳日</div>
+          <div class="chip">1825 kcal</div>
+        </section>
+      </header>
+
+      <section class="dashboard">
+        <aside class="panel profile">
+          <div class="panel-inner">
+            <div class="section-title">
+              <div class="icon-label">
+                <span class="icon-mark">◎</span>
+                <h2>基础档案</h2>
+              </div>
+              <small>编辑</small>
+            </div>
+
+            <div class="profile-grid">
+              <div class="metric-row"><span>性别</span><strong>男</strong></div>
+              <div class="metric-row"><span>身高</span><strong>181 cm</strong></div>
+              <div class="metric-row"><span>体重</span><strong>73 kg</strong></div>
+              <div class="metric-row"><span>年龄</span><strong>34 岁</strong></div>
+              <div class="metric-row"><span>当前体脂</span><strong>18%</strong></div>
+              <div class="metric-row"><span>目标体脂</span><strong>15%</strong></div>
+              <div class="metric-row"><span>活动水平</span><strong>每周 3-5 练</strong></div>
+            </div>
+
+            <div class="profile-summary">
+              <div class="summary-tile">
+                <span>目标体重</span>
+                <strong>70.4 kg</strong>
+              </div>
+              <div class="summary-tile">
+                <span>预计需减脂</span>
+                <strong>2.6 kg</strong>
+              </div>
+            </div>
+
+            <div class="nav-card">
+              <strong>食材库已移至二级页面</strong>
+              <span>首页只保留今日记录和推荐，完整食材管理从顶部“食材库”进入。</span>
+            </div>
+          </div>
+        </aside>
+
+        <article class="panel primary">
+          <div class="panel-inner">
+            <div class="section-title">
+              <div class="icon-label">
+                <span class="icon-mark">↯</span>
+                <h2>今日热量表</h2>
+              </div>
+              <div class="mode-tabs">
+                <span>高碳日</span>
+                <span class="active">中碳日</span>
+                <span>低碳日</span>
+              </div>
+            </div>
+
+            <div class="hero-number">
+              <div class="number-card"><span>BMR</span><strong>1696</strong><em>kcal</em></div>
+              <div class="number-card"><span>TDEE</span><strong>2629</strong><em>kcal</em></div>
+              <div class="number-card"><span>目标热量</span><strong>1825</strong><em>每公斤体重：碳水 2g · 蛋白 2g · 脂肪 1g</em></div>
+            </div>
+
+            <div class="progress-list">
+              <div class="progress-item">
+                <b>热量</b>
+                <div class="progress-track"><span class="progress-fill" style="width: 63%"></span></div>
+                <span class="progress-meta">已吃 1142.6 / 1825 kcal</span>
+              </div>
+              <div class="progress-item">
+                <b>蛋白质</b>
+                <div class="progress-track"><span class="progress-fill" style="width: 70%"></span></div>
+                <span class="progress-meta">已吃 101.8 / 146 g</span>
+              </div>
+              <div class="progress-item">
+                <b>碳水</b>
+                <div class="progress-track"><span class="progress-fill" style="width: 78%"></span></div>
+                <span class="progress-meta">已吃 114.5 / 146 g</span>
+              </div>
+              <div class="progress-item">
+                <b>脂肪</b>
+                <div class="progress-track"><span class="progress-fill" style="width: 39%"></span></div>
+                <span class="progress-meta">已吃 28.7 / 73 g</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <aside class="panel recommend">
+          <div class="panel-inner">
+            <div class="section-title">
+              <div class="icon-label">
+                <span class="icon-mark">✣</span>
+                <h2>余餐推荐</h2>
+              </div>
+              <small>配置</small>
+            </div>
+
+            <div class="gap-card">
+              <div><span>剩余热量</span><strong>682</strong></div>
+              <div><span>蛋白缺口</span><strong>44g</strong></div>
+              <div><span>碳水缺口</span><strong>31g</strong></div>
+              <div><span>脂肪空间</span><strong>44g</strong></div>
+            </div>
+
+            <div class="rec-list">
+              <div class="rec-item"><strong>晚餐：去皮鸡腿 150g</strong><span>182kcal · 蛋白 30g · 脂肪 6.3g</span></div>
+              <div class="rec-item"><strong>主食：米饭 100g</strong><span>116kcal · 碳水 25.9g</span></div>
+              <div class="rec-item"><strong>补充：西兰花 200g</strong><span>68kcal · 蛋白 5.6g · 碳水 13.2g</span></div>
+            </div>
+          </div>
+        </aside>
+
+        <article class="panel meals">
+          <div class="panel-inner">
+            <div class="meal-toolbar">
+              <div class="icon-label">
+                <span class="icon-mark">Ψ</span>
+                <div>
+                  <h2 style="margin: 0 0 6px; font-size: 22px">五餐记录</h2>
+                  <small style="color: var(--muted); font-size: 12px; font-weight: 800">2026-06-09 · 8 条记录 · 首页无食材库表格</small>
+                </div>
+              </div>
+              <div class="meal-actions">
+                <div class="button">清空当天</div>
+                <div class="button">进入食材库</div>
+                <div class="button primary">添加餐食</div>
+              </div>
+            </div>
+
+            <div class="meal-grid">
+              <div class="meal-card">
+                <div class="meal-head"><strong>早餐</strong><span>333 kcal</span></div>
+                <div class="food-line"><b>牛奶 200g</b><small>碳 10g · 蛋 7.2g · 脂 8g</small></div>
+                <div class="food-line"><b>酒酿馒头 50g</b><small>碳 26.7g · 蛋 3.4g</small></div>
+                <div class="meal-foot">+1 项 · 展开明细</div>
+              </div>
+
+              <div class="meal-card">
+                <div class="meal-head"><strong>午餐</strong><span>343 kcal</span></div>
+                <div class="food-line"><b>熟米 125g</b><small>碳 35.3g · 蛋 3.4g</small></div>
+                <div class="food-line"><b>牛肉 150g</b><small>蛋 34.5g · 脂 4.5g</small></div>
+                <div class="meal-foot">营养结构稳定</div>
+              </div>
+
+              <div class="meal-card">
+                <div class="meal-head"><strong>练前餐</strong><span>467 kcal</span></div>
+                <div class="food-line"><b>蛋白粉 30g</b><small>碳 3.9g · 蛋 21.9g</small></div>
+                <div class="food-line"><b>核桃全麦面包 80g</b><small>碳 32.8g · 脂 10.2g</small></div>
+                <div class="meal-foot">+1 项 · 展开明细</div>
+              </div>
+
+              <div class="meal-card">
+                <div class="meal-head"><strong>练后餐</strong><span>0 kcal</span></div>
+                <div class="empty-state">不吃<br />已跳过该餐</div>
+              </div>
+
+              <div class="meal-card">
+                <div class="meal-head"><strong>晚餐</strong><span>0 kcal</span></div>
+                <div class="empty-state">待选择<br />可添加餐食或标记不吃</div>
+              </div>
+            </div>
+
+            <div class="daily-strip">
+              <div class="daily-tile"><span>今日完成度</span><strong class="good">63%</strong></div>
+              <div class="daily-tile"><span>建议晚餐热量</span><strong>360-520 kcal</strong></div>
+              <div class="daily-tile"><span>优先补充</span><strong>蛋白质 / 碳水</strong></div>
+              <div class="daily-tile"><span>下一步</span><strong class="good">生成晚餐推荐</strong></div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

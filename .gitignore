@@ -1,0 +1,71 @@
+# 系统文件
+.DS_Store
+**/.DS_Store
+
+# 本地环境
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# 日志与调试产物
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.playwright-cli/
+
+# 部署临时包
+.deploy-tmp/
+
+# Node / Vite
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/*.local
+
+# Java / Maven / Gradle
+**/target/
+**/build/
+**/.gradle/
+java/HELP.md
+java/.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+**/.idea/
+.vscode/*
+!.vscode/extensions.json
+**/.vscode/*
+!**/.vscode/extensions.json
+*.iws
+*.iml
+*.ipr
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# 证书与密钥
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.pub

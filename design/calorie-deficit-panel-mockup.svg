@@ -1,0 +1,101 @@
+<svg width="960" height="660" viewBox="0 0 960 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#123321" stroke-width="1" opacity="0.55"/>
+    </pattern>
+    <linearGradient id="panel" x1="120" y1="68" x2="830" y2="540" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#15251A"/>
+      <stop offset="1" stop-color="#07100B"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="38" y1="58" x2="918" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#31F87F"/>
+      <stop offset="0.62" stop-color="#31F87F" stop-opacity="0"/>
+      <stop offset="1" stop-color="#FF9F1C"/>
+    </linearGradient>
+    <linearGradient id="target" x1="614" y1="176" x2="805" y2="300" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4A3513"/>
+      <stop offset="1" stop-color="#211B0D"/>
+    </linearGradient>
+    <linearGradient id="deficit" x1="805" y1="176" x2="918" y2="304" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E3B23"/>
+      <stop offset="1" stop-color="#082013"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.224 0 0 0 0 1 0 0 0 0 0.533 0 0 0 0.38 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="660" fill="#050706"/>
+  <rect width="960" height="660" fill="url(#grid)"/>
+  <rect x="19" y="19" width="922" height="612" rx="4" fill="none" stroke="#173E28" opacity="0.85"/>
+
+  <rect x="38" y="58" width="884" height="520" rx="7" fill="url(#panel)" stroke="#244C33"/>
+  <rect x="38" y="58" width="884" height="3" fill="url(#accent)"/>
+
+  <text x="82" y="118" fill="#F4F7EF" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="28" font-weight="800">今日热量表</text>
+  <path d="M59 108 L64 120 L69 90 L75 132 L82 112" stroke="#39FF88" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="60" y="158" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="16">每公斤体重：碳水 4.5g · 蛋白 2g · 脂肪 0.8g</text>
+
+  <rect x="444" y="84" width="120" height="46" rx="7" fill="#39FF88"/>
+  <text x="489" y="114" fill="#061008" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="900" text-anchor="middle">高碳日</text>
+  <rect x="564" y="84" width="120" height="46" rx="7" fill="#101812" stroke="#314B38"/>
+  <text x="624" y="114" fill="#99A59C" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800" text-anchor="middle">中碳日</text>
+  <rect x="684" y="84" width="120" height="46" rx="7" fill="#101812" stroke="#314B38"/>
+  <text x="744" y="114" fill="#99A59C" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800" text-anchor="middle">低碳日</text>
+  <rect x="820" y="84" width="76" height="46" rx="7" fill="#101812" stroke="#314B38"/>
+  <text x="858" y="114" fill="#F4F7EF" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="800" text-anchor="middle">配置</text>
+
+  <g>
+    <rect x="60" y="184" width="209" height="138" rx="6" fill="#111713" stroke="#27452F"/>
+    <text x="82" y="222" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900" letter-spacing="2">BMR</text>
+    <text x="82" y="268" fill="#F4F7EF" font-family="Arial Black, PingFang SC, sans-serif" font-size="42" font-weight="900">1696</text>
+    <text x="82" y="296" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">kcal</text>
+  </g>
+
+  <g>
+    <rect x="269" y="184" width="209" height="138" fill="#111713" stroke="#27452F"/>
+    <text x="293" y="222" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900" letter-spacing="2">TDEE</text>
+    <text x="293" y="268" fill="#F4F7EF" font-family="Arial Black, PingFang SC, sans-serif" font-size="42" font-weight="900">2629</text>
+    <text x="293" y="296" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">kcal</text>
+  </g>
+
+  <g>
+    <rect x="478" y="184" width="209" height="138" fill="url(#target)" stroke="#4B4A25"/>
+    <text x="502" y="222" fill="#9CA095" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">目标热量</text>
+    <text x="502" y="268" fill="#FF9F1C" font-family="Arial Black, PingFang SC, sans-serif" font-size="42" font-weight="900">2424</text>
+    <text x="502" y="296" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">kcal</text>
+  </g>
+
+  <g filter="url(#glow)">
+    <rect x="687" y="184" width="209" height="138" fill="url(#deficit)" stroke="#39FF88" stroke-opacity="0.9"/>
+    <rect x="698" y="195" width="58" height="24" rx="12" fill="#39FF88" fill-opacity="0.14" stroke="#39FF88" stroke-opacity="0.72"/>
+    <text x="727" y="212" fill="#8DFFB5" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="12" font-weight="900" text-anchor="middle">减脂核心</text>
+    <text x="710" y="239" fill="#8DFFB5" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">热量缺口</text>
+    <text x="710" y="281" fill="#39FF88" font-family="Arial Black, PingFang SC, sans-serif" font-size="44" font-weight="900">205</text>
+    <text x="710" y="307" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="900">kcal</text>
+    <path d="M860 244 L846 230 H856 V204 H864 V230 H874 L860 244Z" fill="#39FF88"/>
+    <text x="860" y="281" fill="#8D9A90" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="13" font-weight="800" text-anchor="middle">TDEE - 目标</text>
+  </g>
+
+  <g font-family="PingFang SC, Microsoft YaHei, sans-serif">
+    <text x="60" y="373" fill="#F4F7EF" font-size="20" font-weight="850">热量</text>
+    <text x="802" y="373" fill="#9BA69E" font-size="16" text-anchor="end">已吃 0 / 目标 2424 kcal</text>
+    <rect x="60" y="392" width="836" height="16" rx="8" fill="#1A281E" stroke="#294431"/>
+
+    <text x="60" y="453" fill="#F4F7EF" font-size="20" font-weight="850">蛋白质</text>
+    <text x="802" y="453" fill="#9BA69E" font-size="16" text-anchor="end">已吃 0 / 目标 146 g</text>
+    <rect x="60" y="472" width="836" height="16" rx="8" fill="#1A281E" stroke="#294431"/>
+
+    <text x="60" y="533" fill="#F4F7EF" font-size="20" font-weight="850">碳水</text>
+    <text x="802" y="533" fill="#9BA69E" font-size="16" text-anchor="end">已吃 0 / 目标 329 g</text>
+    <rect x="60" y="552" width="836" height="16" rx="8" fill="#1A281E" stroke="#294431"/>
+  </g>
+
+  <g>
+    <rect x="602" y="334" width="293" height="38" rx="6" fill="#07100B" stroke="#39FF88" stroke-opacity="0.34"/>
+    <circle cx="623" cy="353" r="5" fill="#39FF88"/>
+    <text x="637" y="359" fill="#9BA69E" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14">缺口 = TDEE - 目标热量，是控制减脂速度的核心指标</text>
+  </g>
+</svg>

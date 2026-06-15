@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>食材库二级页面设计稿</title>
+    <style>
+      :root {
+        --bg: #06110d;
+        --panel: rgba(14, 28, 21, 0.94);
+        --panel-deep: rgba(7, 17, 13, 0.97);
+        --text: #eef7ef;
+        --muted: #7d9287;
+        --green: #27f47d;
+        --green-soft: #a5ff4f;
+        --amber: #ffad28;
+        --line: rgba(120, 255, 164, 0.22);
+        --shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 74% 16%, rgba(255, 168, 40, 0.12), transparent 28%),
+          radial-gradient(circle at 22% 18%, rgba(39, 244, 125, 0.15), transparent 32%),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          "DIN Alternate",
+          "Avenir Next",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        background:
+          linear-gradient(rgba(67, 255, 139, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(67, 255, 139, 0.055) 1px, transparent 1px),
+          linear-gradient(rgba(67, 255, 139, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(67, 255, 139, 0.035) 1px, transparent 1px);
+        background-size:
+          40px 40px,
+          40px 40px,
+          8px 8px,
+          8px 8px;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.35));
+      }
+
+      .screen {
+        position: relative;
+        width: 1440px;
+        height: 900px;
+        margin: 0 auto;
+        padding: 24px 30px 28px;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 270px 1fr 510px;
+        gap: 22px;
+        align-items: end;
+        height: 96px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        align-self: center;
+      }
+
+      .logo {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid rgba(39, 244, 125, 0.42);
+        border-radius: 10px;
+        color: var(--green);
+        background: rgba(39, 244, 125, 0.08);
+        box-shadow: 0 0 26px rgba(39, 244, 125, 0.24);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .brand-name {
+        margin: 0;
+        font-size: 23px;
+        line-height: 1;
+      }
+
+      .source {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .title-block {
+        align-self: center;
+      }
+
+      .eyebrow {
+        color: var(--amber);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .title {
+        margin: 7px 0 0;
+        font-size: 48px;
+        line-height: 0.95;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        align-self: center;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 104px;
+        height: 44px;
+        padding: 0 15px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 8px;
+        background: rgba(19, 34, 27, 0.92);
+        color: var(--text);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        font-size: 14px;
+        font-weight: 900;
+      }
+
+      .chip.active {
+        color: #07150e;
+        background: linear-gradient(135deg, var(--green), var(--green-soft));
+        border-color: transparent;
+      }
+
+      .chip.link {
+        color: var(--green);
+        border-color: rgba(39, 244, 125, 0.34);
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns: 270px 1fr;
+        gap: 16px;
+        height: 738px;
+        padding-top: 16px;
+      }
+
+      .panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(17, 31, 24, 0.95), rgba(7, 16, 12, 0.97));
+        box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .panel::before {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 2px;
+        content: "";
+        background: linear-gradient(90deg, var(--green), rgba(255, 173, 40, 0.95));
+      }
+
+      .panel-inner {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        padding: 16px;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+
+      .section-title h2 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1;
+      }
+
+      .section-title small {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .icon-label {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .icon-mark {
+        color: var(--green);
+        font-size: 18px;
+      }
+
+      .side-menu {
+        display: grid;
+        gap: 10px;
+      }
+
+      .menu-item {
+        display: grid;
+        gap: 4px;
+        min-height: 58px;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .menu-item.active {
+        border-color: rgba(39, 244, 125, 0.42);
+        background: rgba(39, 244, 125, 0.08);
+      }
+
+      .menu-item strong {
+        font-size: 15px;
+      }
+
+      .menu-item span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .side-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .stat-card {
+        padding: 12px;
+        border-radius: 7px;
+        background: rgba(39, 244, 125, 0.07);
+      }
+
+      .stat-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .stat-card strong {
+        display: block;
+        margin-top: 7px;
+        color: var(--green);
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .main {
+        display: grid;
+        grid-template-rows: 146px 1fr;
+        gap: 16px;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: 1fr 124px 124px 128px;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .input,
+      .select {
+        display: flex;
+        align-items: center;
+        height: 44px;
+        padding: 0 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.24);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 44px;
+        padding: 0 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .button.primary {
+        color: #06110d;
+        border: 0;
+        background: linear-gradient(135deg, var(--green), var(--green-soft));
+      }
+
+      .quick-chips {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        overflow: hidden;
+      }
+
+      .food-chip {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        height: 31px;
+        padding: 0 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: #dbe7dd;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .food-chip.active {
+        border-color: rgba(39, 244, 125, 0.45);
+        color: var(--green);
+        background: rgba(39, 244, 125, 0.08);
+      }
+
+      .table-panel .panel-inner {
+        padding: 0;
+      }
+
+      .table-head {
+        display: grid;
+        grid-template-columns: 2fr repeat(4, 1fr) 112px;
+        align-items: center;
+        height: 50px;
+        padding: 0 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .table-body {
+        display: grid;
+      }
+
+      .table-row {
+        display: grid;
+        grid-template-columns: 2fr repeat(4, 1fr) 112px;
+        align-items: center;
+        min-height: 56px;
+        padding: 0 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+        color: #dce9df;
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .table-row:nth-child(odd) {
+        background: rgba(255, 255, 255, 0.018);
+      }
+
+      .food-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 16px rgba(39, 244, 125, 0.4);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .kcal {
+        color: var(--amber);
+      }
+
+      .ops {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        color: var(--muted);
+      }
+
+      .op {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .table-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 50px;
+        padding: 0 18px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="screen">
+      <header class="topbar">
+        <section class="brand">
+          <div class="logo">C</div>
+          <div>
+            <h1 class="brand-name">碳训计划</h1>
+            <p class="source">食材数据：后端数据库</p>
+          </div>
+        </section>
+
+        <section class="title-block">
+          <div class="eyebrow">二级页面 · 数据维护 · 快速检索</div>
+          <h2 class="title">食材库</h2>
+        </section>
+
+        <section class="actions" aria-label="页面导航">
+          <div class="chip link">今日计划</div>
+          <div class="chip active">食材库</div>
+          <div class="chip">36 / 36</div>
+          <div class="chip">新增食材</div>
+        </section>
+      </header>
+
+      <section class="page">
+        <aside class="panel">
+          <div class="panel-inner">
+            <div class="section-title">
+              <div class="icon-label">
+                <span class="icon-mark">▦</span>
+                <h2>页面导航</h2>
+              </div>
+            </div>
+
+            <div class="side-menu">
+              <div class="menu-item"><strong>今日计划</strong><span>热量、餐次、推荐</span></div>
+              <div class="menu-item active"><strong>食材库</strong><span>完整食材表、增删改查</span></div>
+              <div class="menu-item"><strong>推荐配置</strong><span>提示词、排序规则</span></div>
+              <div class="menu-item"><strong>周期设置</strong><span>高碳 / 中碳 / 低碳</span></div>
+            </div>
+
+            <div class="side-stats">
+              <div class="stat-card"><span>食材总数</span><strong>36</strong></div>
+              <div class="stat-card"><span>今日使用</span><strong>8</strong></div>
+              <div class="stat-card"><span>高蛋白</span><strong>14</strong></div>
+              <div class="stat-card"><span>主食类</span><strong>9</strong></div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="main">
+          <article class="panel">
+            <div class="panel-inner">
+              <div class="section-title">
+                <div class="icon-label">
+                  <span class="icon-mark">⌕</span>
+                  <h2>检索与添加</h2>
+                </div>
+                <small>独立页面承载完整食材库，不占用今日计划首屏</small>
+              </div>
+
+              <div class="toolbar">
+                <div class="input">搜索食材名称，例如：牛奶、米饭、鸡腿、西兰花</div>
+                <div class="select">全部分类</div>
+                <div class="select">按热量排序</div>
+                <div class="button primary">添加食材</div>
+              </div>
+
+              <div class="quick-chips">
+                <span class="food-chip active">常用</span>
+                <span class="food-chip">高蛋白</span>
+                <span class="food-chip">低脂</span>
+                <span class="food-chip">主食</span>
+                <span class="food-chip">蔬菜</span>
+                <span class="food-chip">乳制品</span>
+                <span class="food-chip">训练前</span>
+                <span class="food-chip">训练后</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel table-panel">
+            <div class="panel-inner">
+              <div class="table-head">
+                <div>名称</div>
+                <div>蛋白</div>
+                <div>碳水</div>
+                <div>脂肪</div>
+                <div>热量</div>
+                <div>操作</div>
+              </div>
+
+              <div class="table-body">
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>牛奶</span></div>
+                  <div>3.6 g</div>
+                  <div>5 g</div>
+                  <div>4 g</div>
+                  <div class="kcal">70 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>鲜奶吐司</span></div>
+                  <div>11.8 g</div>
+                  <div>49.1 g</div>
+                  <div>7.6 g</div>
+                  <div class="kcal">315 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>酵母吐司</span></div>
+                  <div>8 g</div>
+                  <div>47 g</div>
+                  <div>2.3 g</div>
+                  <div class="kcal">245 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>燕麦吐司</span></div>
+                  <div>8.7 g</div>
+                  <div>35.2 g</div>
+                  <div>5.5 g</div>
+                  <div class="kcal">244 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>A2 吐司</span></div>
+                  <div>7.4 g</div>
+                  <div>48.4 g</div>
+                  <div>12.7 g</div>
+                  <div class="kcal">339 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>去皮鸡腿</span></div>
+                  <div>30 g</div>
+                  <div>0 g</div>
+                  <div>6.3 g</div>
+                  <div class="kcal">182 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>米饭</span></div>
+                  <div>2.6 g</div>
+                  <div>25.9 g</div>
+                  <div>0.3 g</div>
+                  <div class="kcal">116 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>蛋白粉</span></div>
+                  <div>21.9 g</div>
+                  <div>3.9 g</div>
+                  <div>1.1 g</div>
+                  <div class="kcal">114 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+                <div class="table-row">
+                  <div class="food-name"><span class="dot"></span><span>西兰花</span></div>
+                  <div>5.6 g</div>
+                  <div>13.2 g</div>
+                  <div>0.8 g</div>
+                  <div class="kcal">68 kcal</div>
+                  <div class="ops"><span class="op">✎</span><span class="op">⌫</span></div>
+                </div>
+              </div>
+
+              <div class="table-footer">
+                <span>显示 1-9 / 36 条 · 表格区域可独立分页或局部滚动</span>
+                <span class="muted">上一页　1　2　3　4　下一页</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,1206 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ConfigProvider, DatePicker, Form, message } from 'antd'
+import zhCN from 'antd/locale/zh_CN'
+import dayjs from 'dayjs'
+import 'dayjs/locale/zh-cn'
+import { CalendarDays, Flame } from 'lucide-react'
+import 'antd/dist/reset.css'
+import './App.css'
+import {
+  clearAuthToken,
+  clearMealEntries,
+  createFood,
+  createMealEntries,
+  createMealEntry,
+  createRecommendationPrompt,
+  deleteRecommendationPrompt,
+  deleteFood,
+  deleteMealEntry,
+  fetchCurrentUser,
+  fetchCycleMacroSettings,
+  fetchFoods,
+  fetchMealEntries,
+  fetchProfileStatus,
+  fetchPublicFoods,
+  fetchRecommendationPrompts,
+  getAuthToken,
+  importFood,
+  isUnauthorizedApiError,
+  loginAuth,
+  logoutAuth,
+  reorderRecommendationPrompts,
+  registerAuth,
+  requestApi,
+  saveCycleMacroSettings,
+  saveProfile,
+  setApiErrorNotifier,
+  setAuthToken,
+  setUnauthorizedNotifier,
+  updateFood,
+  updateMealEntry,
+  updateRecommendationPrompt,
+} from './api'
+import { AppNav } from './components/AppNav'
+import { FoodDrawer } from './components/FoodDrawer'
+import { MealEntryModal } from './components/MealEntryModal'
+import { ProfilePanel } from './components/ProfilePanel'
+import { ProfileModal } from './components/ProfileModal'
+import { StatusPill } from './components/Common'
+import { antdTheme, defaultFoodForm, initialMealForm } from './config'
+import {
+  calculateDailyPlan,
+  calculateEntryTotals,
+  calculateRemaining,
+  createId,
+  cycleLabels,
+  defaultCycleMacroSettings,
+  defaultFoods,
+  mealLabels,
+  defaultProfile,
+  getTargetRecommendationMeals,
+  normalizeCycleMacroSettings,
+  type CycleMacroSettings,
+  type CycleType,
+  type Food,
+  type MealEntry,
+  type MealType,
+  type Profile,
+  type RecommendedItem,
+} from './domain'
+import { readStoredState, useStoredState } from './hooks/useStoredState'
+import type {
+  AppRoute,
+  AuthLoginValues,
+  AuthResponse,
+  AuthRegisterValues,
+  AuthUser,
+  MealDraftFormState,
+  FoodFormValues,
+  FoodSource,
+  MealFormState,
+  MealSource,
+  ProfileSource,
+  RecommendationPrompt,
+  RecommendationPromptFormValues,
+  RecommendationState,
+  SkippedMeals,
+} from './types'
+import { groupEntriesByMeal } from './utils/meal'
+import { CycleMacroModal } from './components/CycleMacroModal'
+import { AuthPage } from './pages/AuthPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { FoodLibraryPage } from './pages/FoodLibraryPage'
+import { ProfileSetupPage } from './pages/ProfileSetupPage'
+
+dayjs.locale('zh-cn')
+
+/** 获取本地日期字符串。 */
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** 根据地址识别当前页面。 */
+function getRouteFromPath(pathname: string): AppRoute {
+  return pathname.startsWith('/foods') ? 'foods' : 'dashboard'
+}
+
+/** 获取页面对应地址。 */
+function getPathFromRoute(route: AppRoute) {
+  return route === 'foods' ? '/foods' : '/'
+}
+
+/** 创建餐食本地缓存 key。 */
+function createMealCacheKey(date: string, userId?: number) {
+  return userId ? `training-user-${userId}-entries-${date}` : `training-entries-${date}`
+}
+
+/** 创建跳过餐次本地缓存 key。 */
+function createMealSkipCacheKey(date: string, userId?: number) {
+  return userId ? `training-user-${userId}-skipped-meals-${date}` : `training-skipped-meals-${date}`
+}
+
+/** 创建推荐结果本地缓存 key。 */
+function createRecommendationCacheKey(date: string, userId?: number) {
+  return userId ? `training-user-${userId}-recommendation-v2-${date}` : `training-recommendation-v2-${date}`
+}
+
+/** 按推荐提示词顺序排序。 */
+function sortRecommendationPrompts(prompts: RecommendationPrompt[]) {
+  return [...prompts].sort((first, second) => first.sortOrder - second.sortOrder || Number(first.id) - Number(second.id))
+}
+
+/** 组装按顺序执行的推荐要求。 */
+function createOrderedRecommendationRequirement(prompts: RecommendationPrompt[]) {
+  const orderedPrompts = prompts.map((prompt, index) => `${index + 1}. ${prompt.title}：${prompt.content}`).join('\n')
+  return orderedPrompts ? `请按以下顺序满足推荐要求：\n${orderedPrompts}` : ''
+}
+
+/** 推荐接口等待 DeepSeek 的最长时间。 */
+const recommendationTimeoutMs = 105000
+
+/** 标准化食材名称用于推荐项匹配。 */
+function normalizeFoodName(name: string) {
+  return name.trim().toLowerCase()
+}
+
+/** 按推荐食材名称匹配食材库。 */
+function findFoodByRecommendationName(foods: Food[], foodName: string) {
+  const normalizedName = normalizeFoodName(foodName)
+  return foods.find((food) => normalizeFoodName(food.name) === normalizedName)
+    ?? foods.find((food) => normalizedName.includes(normalizeFoodName(food.name)))
+}
+
+/** 将推荐项转换为指定餐次录入表单。 */
+function createRecommendedMealForm(item: RecommendedItem, foodId: string, meal: MealType): MealFormState {
+  return {
+    meal,
+    foodId,
+    grams: item.grams,
+  }
+}
+
+/** 判断餐食草稿是否可提交。 */
+function isCompleteMealForm(mealForm: MealDraftFormState): mealForm is MealFormState {
+  return Boolean(mealForm.meal && mealForm.foodId && mealForm.grams && mealForm.grams > 0)
+}
+
+/** 主应用组件。 */
+function App() {
+  const [foodForm] = Form.useForm<FoodFormValues>()
+  const [profileForm] = Form.useForm<Profile>()
+  const [mealEntryForm] = Form.useForm<MealFormState>()
+  const [cycleMacroForm] = Form.useForm<CycleMacroSettings>()
+  /** 全局消息提示实例。 */
+  const [messageApi, messageContextHolder] = message.useMessage()
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isSavingAuth, setIsSavingAuth] = useState(false)
+  const [isCheckingProfile, setIsCheckingProfile] = useState(false)
+  const [isProfileInitialized, setIsProfileInitialized] = useState(false)
+  const [profile, setProfile] = useStoredState<Profile>('training-profile', defaultProfile)
+  const [foods, setFoods] = useStoredState<Food[]>('training-foods', defaultFoods)
+  const [cycleMacroSettings, setCycleMacroSettingsState] = useState<CycleMacroSettings>(() =>
+    normalizeCycleMacroSettings(readStoredState('training-cycle-macro-settings', defaultCycleMacroSettings)),
+  )
+  const [selectedDate, setSelectedDate] = useStoredState<string>('training-selected-date', getLocalDateString())
+  const [entries, setEntriesState] = useState<MealEntry[]>([])
+  const [skippedMeals, setSkippedMealsState] = useState<SkippedMeals>({})
+  const [cycleType, setCycleType] = useStoredState<CycleType>('training-cycle', 'medium')
+  const [mealForm, setMealForm] = useState(initialMealForm)
+  const [recommendation, setRecommendationState] = useState<RecommendationState | null>(null)
+  const [recommendationPrompts, setRecommendationPrompts] = useState<RecommendationPrompt[]>([])
+  const [importingRecommendationMeal, setImportingRecommendationMeal] = useState<MealType | null>(null)
+  const [isRecommending, setIsRecommending] = useState(false)
+  const [isSavingRecommendationPrompt, setIsSavingRecommendationPrompt] = useState(false)
+  const [profileSource, setProfileSource] = useState<ProfileSource>('loading')
+  const [isCycleMacroModalOpen, setIsCycleMacroModalOpen] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isProfileCollapsed, setIsProfileCollapsed] = useState(false)
+  const [mealSource, setMealSource] = useState<MealSource>('loading')
+  const [isMealEntryModalOpen, setIsMealEntryModalOpen] = useState(false)
+  const [isSavingMealEntry, setIsSavingMealEntry] = useState(false)
+  const [editingMealEntry, setEditingMealEntry] = useState<MealEntry | null>(null)
+  const [foodSource, setFoodSource] = useState<FoodSource>('loading')
+  const [isFoodDrawerOpen, setIsFoodDrawerOpen] = useState(false)
+  const [isSavingFood, setIsSavingFood] = useState(false)
+  const [editingFood, setEditingFood] = useState<Food | null>(null)
+  const [publicFoods, setPublicFoods] = useState<Food[]>([])
+  const [isLoadingPublicFoods, setIsLoadingPublicFoods] = useState(false)
+  const [importingFoodId, setImportingFoodId] = useState<string | null>(null)
+
+  /** 更新碳循环宏量配置并同步本地缓存。 */
+  const setCycleMacroSettings = useCallback((nextSettings: CycleMacroSettings) => {
+    const normalizedSettings = normalizeCycleMacroSettings(nextSettings)
+    setCycleMacroSettingsState(normalizedSettings)
+    localStorage.setItem('training-cycle-macro-settings', JSON.stringify(normalizedSettings))
+  }, [])
+
+  /** 更新当前日期餐食并同步本地缓存。 */
+  const setEntries = useCallback((nextEntries: MealEntry[]) => {
+    setEntriesState(nextEntries)
+    if (authUser) {
+      localStorage.setItem(createMealCacheKey(selectedDate, authUser.id), JSON.stringify(nextEntries))
+    }
+  }, [authUser, selectedDate])
+
+  /** 更新当前日期跳过餐次并同步本地缓存。 */
+  const setSkippedMeals = useCallback((nextSkippedMeals: SkippedMeals) => {
+    setSkippedMealsState(nextSkippedMeals)
+    if (authUser) {
+      localStorage.setItem(createMealSkipCacheKey(selectedDate, authUser.id), JSON.stringify(nextSkippedMeals))
+    }
+  }, [authUser, selectedDate])
+
+  /** 更新推荐结果并同步本地缓存。 */
+  const setRecommendation = useCallback((nextRecommendation: RecommendationState | null) => {
+    setRecommendationState(nextRecommendation)
+
+    if (!authUser) {
+      return
+    }
+
+    if (nextRecommendation) {
+      localStorage.setItem(createRecommendationCacheKey(selectedDate, authUser.id), JSON.stringify(nextRecommendation))
+      return
+    }
+
+    localStorage.removeItem(createRecommendationCacheKey(selectedDate, authUser.id))
+  }, [authUser, selectedDate])
+
+  const dailyPlan = useMemo(
+    () => calculateDailyPlan(profile, cycleType, cycleMacroSettings),
+    [cycleMacroSettings, cycleType, profile],
+  )
+  const consumed = useMemo(() => calculateEntryTotals(entries, foods), [entries, foods])
+  const remaining = useMemo(() => calculateRemaining(dailyPlan, consumed), [dailyPlan, consumed])
+  const mealEntries = useMemo(() => groupEntriesByMeal(entries), [entries])
+  const targetRecommendationMeals = useMemo(() => getTargetRecommendationMeals(entries, skippedMeals), [entries, skippedMeals])
+  const orderedRecommendationRequirement = useMemo(
+    () => createOrderedRecommendationRequirement(recommendationPrompts),
+    [recommendationPrompts],
+  )
+  /** 应用外壳类名。 */
+  const appShellClassName = [
+    'app-shell',
+    isProfileCollapsed ? 'is-profile-collapsed' : '',
+  ].filter(Boolean).join(' ')
+
+  /** 重置登录用户相关的业务状态。 */
+  const resetBusinessState = useCallback(() => {
+    setProfile(defaultProfile)
+    setIsCheckingProfile(false)
+    setIsProfileInitialized(false)
+    setCycleMacroSettings(defaultCycleMacroSettings)
+    setEntriesState([])
+    setSkippedMealsState({})
+    setRecommendationState(null)
+    setRecommendationPrompts([])
+    setProfileSource('loading')
+    setMealSource('loading')
+    setFoodSource('loading')
+    setMealForm(initialMealForm)
+  }, [setCycleMacroSettings, setProfile])
+
+  /** 处理登录成功响应。 */
+  const applyAuthResponse = (response: AuthResponse) => {
+    resetBusinessState()
+    setIsCheckingProfile(true)
+    setAuthToken(response.token)
+    setAuthUser(response.user)
+    window.history.replaceState(null, '', '/')
+    setActiveRoute('dashboard')
+    messageApi.success('登录成功')
+  }
+
+  useEffect(() => {
+    /** 同步浏览器历史页面。 */
+    const syncRoute = () => setActiveRoute(getRouteFromPath(window.location.pathname))
+
+    window.addEventListener('popstate', syncRoute)
+
+    return () => window.removeEventListener('popstate', syncRoute)
+  }, [])
+
+  useEffect(() => {
+    /** 展示全局接口错误提示。 */
+    const showApiError = (content: string) => {
+      messageApi.error({ content, duration: 3, key: 'global-api-error' })
+    }
+
+    setApiErrorNotifier(showApiError)
+    setUnauthorizedNotifier(() => {
+      clearAuthToken()
+      setAuthUser(null)
+      resetBusinessState()
+      messageApi.warning({ content: '登录已失效，请重新登录', duration: 3, key: 'auth-expired' })
+    })
+
+    return () => {
+      setApiErrorNotifier(null)
+      setUnauthorizedNotifier(null)
+    }
+  }, [messageApi, resetBusinessState])
+
+  useEffect(() => {
+    let isMounted = true
+    const token = getAuthToken()
+
+    /** 校验本地 token。 */
+    const checkAuth = async () => {
+      if (!token) {
+        setIsCheckingAuth(false)
+        return
+      }
+
+      try {
+        const user = await fetchCurrentUser()
+        if (isMounted) {
+          setIsCheckingProfile(true)
+          setAuthUser(user)
+        }
+      } catch {
+        clearAuthToken()
+        if (isMounted) {
+          setAuthUser(null)
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingAuth(false)
+        }
+      }
+    }
+
+    checkAuth()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!authUser || !isProfileInitialized) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    /** 从后端加载碳循环宏量配置，失败时保留本地缓存。 */
+    const loadCycleMacroSettings = async () => {
+      try {
+        const remoteSettings = await fetchCycleMacroSettings(controller.signal)
+        setCycleMacroSettings(remoteSettings)
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setCycleMacroSettings(normalizeCycleMacroSettings(readStoredState('training-cycle-macro-settings', defaultCycleMacroSettings)))
+      }
+    }
+
+    loadCycleMacroSettings()
+
+    return () => controller.abort()
+  }, [authUser, isProfileInitialized, setCycleMacroSettings])
+
+  useEffect(() => {
+    if (!authUser || !isProfileInitialized) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    /** 从后端加载推荐提示词列表。 */
+    const loadRecommendationPrompts = async () => {
+      try {
+        const remotePrompts = await fetchRecommendationPrompts(controller.signal)
+        setRecommendationPrompts(sortRecommendationPrompts(remotePrompts))
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setRecommendationPrompts([])
+      }
+    }
+
+    loadRecommendationPrompts()
+
+    return () => controller.abort()
+  }, [authUser, isProfileInitialized])
+
+  useEffect(() => {
+    if (!authUser) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    /** 从后端加载个人信息状态。 */
+    const loadProfile = async () => {
+      setIsCheckingProfile(true)
+      setProfileSource('loading')
+
+      try {
+        const remoteStatus = await fetchProfileStatus(controller.signal)
+
+        if (remoteStatus.initialized && remoteStatus.profile) {
+          setProfile(remoteStatus.profile)
+          setProfileSource('api')
+          setIsProfileInitialized(true)
+          return
+        }
+
+        setIsProfileInitialized(false)
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setIsProfileInitialized(false)
+      } finally {
+        setIsCheckingProfile(false)
+      }
+    }
+
+    loadProfile()
+
+    return () => controller.abort()
+  }, [authUser, setProfile])
+
+  useEffect(() => {
+    if (!authUser || !isProfileInitialized) {
+      return
+    }
+
+    const controller = new AbortController()
+    const cachedEntries = readStoredState<MealEntry[]>(
+      createMealCacheKey(selectedDate, authUser.id),
+      [],
+    )
+    const cachedSkippedMeals = readStoredState<SkippedMeals>(createMealSkipCacheKey(selectedDate, authUser.id), {})
+    const cachedRecommendation = readStoredState<RecommendationState | null>(
+      createRecommendationCacheKey(selectedDate, authUser.id),
+      null,
+    )
+
+    /** 同步当前日期缓存餐食。 */
+    const syncCachedEntries = () => {
+      setMealSource('loading')
+      setEntriesState(cachedEntries)
+      setSkippedMealsState(cachedSkippedMeals)
+      setRecommendationState(cachedRecommendation)
+    }
+
+    /** 从后端加载指定日期餐食，失败时使用本地缓存。 */
+    const loadMealEntries = async () => {
+      try {
+        const remoteEntries = await fetchMealEntries(selectedDate, controller.signal)
+        setEntriesState(remoteEntries)
+        localStorage.setItem(createMealCacheKey(selectedDate, authUser.id), JSON.stringify(remoteEntries))
+        setMealSource('api')
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setEntriesState(cachedEntries)
+        setMealSource('local')
+      }
+    }
+
+    syncCachedEntries()
+    loadMealEntries()
+
+    return () => controller.abort()
+  }, [authUser, isProfileInitialized, selectedDate])
+
+  useEffect(() => {
+    if (!authUser || !isProfileInitialized) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    /** 从后端加载食材，失败时保留本地食材。 */
+    const loadFoods = async () => {
+      try {
+        const remoteFoods = await fetchFoods(controller.signal)
+        setFoods(remoteFoods)
+        setFoodSource('api')
+        setMealForm((current) => (current.foodId && !remoteFoods.some((food) => food.id === current.foodId)
+          ? { ...current, foodId: undefined }
+          : current))
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setFoodSource('local')
+      }
+    }
+
+    loadFoods()
+
+    return () => controller.abort()
+  }, [authUser, isProfileInitialized, setFoods])
+
+  /** 打开碳循环宏量配置弹窗。 */
+  const openCycleMacroModal = () => {
+    cycleMacroForm.setFieldsValue(normalizeCycleMacroSettings(cycleMacroSettings))
+    setIsCycleMacroModalOpen(true)
+  }
+
+  /** 关闭碳循环宏量配置弹窗。 */
+  const closeCycleMacroModal = () => {
+    setIsCycleMacroModalOpen(false)
+    cycleMacroForm.resetFields()
+  }
+
+  /** 提交碳循环宏量配置。 */
+  const submitCycleMacroForm = async () => {
+    const values = await cycleMacroForm.validateFields()
+    const normalizedValues = normalizeCycleMacroSettings(values)
+
+    try {
+      const remoteSettings = await saveCycleMacroSettings(normalizedValues)
+      setCycleMacroSettings(remoteSettings)
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setCycleMacroSettings(normalizedValues)
+    } finally {
+      closeCycleMacroModal()
+    }
+  }
+
+  /** 打开个人信息弹窗。 */
+  const openProfileModal = () => {
+    profileForm.setFieldsValue(profile)
+    setIsProfileModalOpen(true)
+  }
+
+  /** 切换个人目标栏展开状态。 */
+  const toggleProfileCollapsed = () => {
+    setIsProfileCollapsed((collapsed) => !collapsed)
+  }
+
+  /** 关闭个人信息弹窗。 */
+  const closeProfileModal = () => {
+    setIsProfileModalOpen(false)
+    profileForm.resetFields()
+  }
+
+  /** 保存个人信息到后端。 */
+  const saveProfileInfo = async (values: Profile, closeAfterSave = true) => {
+    setIsSavingProfile(true)
+
+    try {
+      const nextProfile = await saveProfile(values)
+      setProfile(nextProfile)
+      setProfileSource('api')
+      setIsProfileInitialized(true)
+
+      if (closeAfterSave) {
+        closeProfileModal()
+      }
+
+      return true
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return false
+      }
+
+      return false
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
+
+  /** 提交个人信息表单。 */
+  const submitProfileForm = async () => {
+    const values = await profileForm.validateFields()
+    await saveProfileInfo(values)
+  }
+
+  /** 提交首次建档表单。 */
+  const submitProfileSetup = async (values: Profile) => {
+    const saved = await saveProfileInfo(values, false)
+
+    if (saved) {
+      window.history.replaceState(null, '', '/')
+      setActiveRoute('dashboard')
+    }
+  }
+
+  /** 打开新增食材抽屉。 */
+  const openCreateFoodDrawer = () => {
+    setEditingFood(null)
+    foodForm.setFieldsValue(defaultFoodForm)
+    setIsFoodDrawerOpen(true)
+  }
+
+  /** 打开编辑食材抽屉。 */
+  const openEditFoodDrawer = (food: Food) => {
+    setEditingFood(food)
+    foodForm.setFieldsValue({
+      name: food.name,
+      carbs: food.carbs,
+      protein: food.protein,
+      fat: food.fat,
+      calories: food.calories,
+      remark: food.remark ?? '',
+    })
+    setIsFoodDrawerOpen(true)
+  }
+
+  /** 关闭食材抽屉。 */
+  const closeFoodDrawer = () => {
+    setIsFoodDrawerOpen(false)
+    setEditingFood(null)
+    foodForm.resetFields()
+  }
+
+  /** 保存新增或编辑后的食材。 */
+  const saveFood = async (values: FoodFormValues) => {
+    setIsSavingFood(true)
+
+    try {
+      if (editingFood) {
+        const nextFood = foodSource === 'api' ? await updateFood(editingFood.id, values) : { ...editingFood, ...values }
+        setFoods(foods.map((food) => (food.id === editingFood.id ? nextFood : food)))
+      } else {
+        const nextFood = foodSource === 'api' ? await createFood(values) : { ...values, id: createId() }
+        setFoods([...foods, nextFood])
+      }
+      closeFoodDrawer()
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setFoodSource('local')
+    } finally {
+      setIsSavingFood(false)
+    }
+  }
+
+  /** 提交食材抽屉表单。 */
+  const submitFoodForm = async () => {
+    const values = await foodForm.validateFields()
+    await saveFood(values)
+  }
+
+  /** 加载公共食材库。 */
+  const loadPublicFoods = async () => {
+    setIsLoadingPublicFoods(true)
+
+    try {
+      setPublicFoods(await fetchPublicFoods())
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+    } finally {
+      setIsLoadingPublicFoods(false)
+    }
+  }
+
+  /** 从公共食材库导入。 */
+  const importPublicFood = async (foodId: string) => {
+    setImportingFoodId(foodId)
+
+    try {
+      const nextFood = await importFood(foodId)
+      setFoods((currentFoods) =>
+        currentFoods.some((food) => food.id === nextFood.id) ? currentFoods : [...currentFoods, nextFood],
+      )
+      await loadPublicFoods()
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+    } finally {
+      setImportingFoodId(null)
+    }
+  }
+
+  /** 取消单个餐次的不吃状态。 */
+  const clearSkippedMeal = (meal: MealType) => {
+    if (!skippedMeals[meal]) {
+      return
+    }
+
+    const nextSkippedMeals = { ...skippedMeals }
+    delete nextSkippedMeals[meal]
+    setSkippedMeals(nextSkippedMeals)
+  }
+
+  /** 标记餐次为不吃。 */
+  const skipMeal = (meal: MealType) => {
+    setSkippedMeals({ ...skippedMeals, [meal]: true })
+    setRecommendation(null)
+  }
+
+  /** 恢复餐次为待选择。 */
+  const restoreMeal = (meal: MealType) => {
+    const nextSkippedMeals = { ...skippedMeals }
+    delete nextSkippedMeals[meal]
+    setSkippedMeals(nextSkippedMeals)
+    setRecommendation(null)
+  }
+
+  /** 删除食材并清理关联餐食。 */
+  const removeFood = async (foodId: string) => {
+    try {
+      if (foodSource === 'api') {
+        await deleteFood(foodId)
+      }
+
+      setFoods(foods.filter((food) => food.id !== foodId))
+      setEntries(entries.filter((entry) => entry.foodId !== foodId))
+      setRecommendation(null)
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setFoodSource('local')
+    }
+  }
+
+  /** 添加餐食记录。 */
+  const addMealEntry = async () => {
+    if (!isCompleteMealForm(mealForm)) {
+      messageApi.warning('请选择餐次、食材并填写重量')
+      return
+    }
+
+    try {
+      const nextEntry = mealSource !== 'local' ? await createMealEntry(selectedDate, mealForm) : { ...mealForm, id: createId() }
+      setEntries([...entries, nextEntry])
+      clearSkippedMeal(mealForm.meal)
+      setRecommendation(null)
+      setMealSource(mealSource !== 'local' ? 'api' : 'local')
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+      setEntries([...entries, { ...mealForm, id: createId() }])
+      clearSkippedMeal(mealForm.meal)
+      setRecommendation(null)
+    }
+  }
+
+  /** 打开餐食编辑弹窗。 */
+  const openEditMealEntry = (entry: MealEntry) => {
+    setEditingMealEntry(entry)
+    mealEntryForm.setFieldsValue({
+      foodId: entry.foodId,
+      grams: entry.grams,
+      meal: entry.meal,
+    })
+    setIsMealEntryModalOpen(true)
+  }
+
+  /** 关闭餐食编辑弹窗。 */
+  const closeMealEntryModal = () => {
+    setIsMealEntryModalOpen(false)
+    setEditingMealEntry(null)
+    mealEntryForm.resetFields()
+  }
+
+  /** 保存餐食修改。 */
+  const saveMealEntryInfo = async (values: MealFormState) => {
+    if (!editingMealEntry) {
+      return
+    }
+
+    setIsSavingMealEntry(true)
+
+    try {
+      const nextEntry = mealSource !== 'local'
+        ? await updateMealEntry(editingMealEntry.id, selectedDate, values)
+        : { ...editingMealEntry, ...values }
+      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
+      clearSkippedMeal(values.meal)
+      setRecommendation(null)
+      closeMealEntryModal()
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? { ...entry, ...values } : entry)))
+      clearSkippedMeal(values.meal)
+      setRecommendation(null)
+      closeMealEntryModal()
+    } finally {
+      setIsSavingMealEntry(false)
+    }
+  }
+
+  /** 提交餐食编辑表单。 */
+  const submitMealEntryForm = async () => {
+    const values = await mealEntryForm.validateFields()
+    await saveMealEntryInfo(values)
+  }
+
+  /** 删除餐食记录。 */
+  const removeMealEntry = async (entryId: string) => {
+    try {
+      if (mealSource !== 'local') {
+        await deleteMealEntry(entryId)
+      }
+
+      setEntries(entries.filter((entry) => entry.id !== entryId))
+      setRecommendation(null)
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+    }
+  }
+
+  /** 清空当前日期餐食。 */
+  const resetMeals = async () => {
+    try {
+      if (mealSource !== 'local') {
+        await clearMealEntries(selectedDate)
+      }
+
+      setEntries([])
+      setSkippedMeals({})
+      setRecommendation(null)
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+      setEntries([])
+      setSkippedMeals({})
+      setRecommendation(null)
+    }
+  }
+
+  /** 请求后端 AI 推荐。 */
+  const requestRecommendation = async (customRequirement: string) => {
+    setIsRecommending(true)
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), recommendationTimeoutMs)
+
+    try {
+      const response = await requestApi('/api/recommendations/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          profile,
+          cycleType,
+          customRequirement: customRequirement.trim(),
+          dailyPlan,
+          consumed,
+          remaining,
+          foods,
+          entries,
+          skippedMeals,
+          targetMeals: targetRecommendationMeals,
+        }),
+      })
+      const data = (await response.json()) as RecommendationState
+      setRecommendation(data)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        messageApi.error('DeepSeek 响应超时，请稍后重试或切换更快模型')
+      }
+      setRecommendation(null)
+    } finally {
+      window.clearTimeout(timeoutId)
+      setIsRecommending(false)
+    }
+  }
+
+  /** 保存推荐提示词。 */
+  const saveRecommendationPromptForm = async (values: RecommendationPromptFormValues, editingPrompt?: RecommendationPrompt | null) => {
+    setIsSavingRecommendationPrompt(true)
+
+    try {
+      if (editingPrompt) {
+        const updatedPrompt = await updateRecommendationPrompt(editingPrompt.id, values)
+        setRecommendationPrompts((currentPrompts) =>
+          sortRecommendationPrompts(currentPrompts.map((prompt) => (prompt.id === updatedPrompt.id ? updatedPrompt : prompt))),
+        )
+        messageApi.success('推荐提示词已更新')
+        return
+      }
+
+      const createdPrompt = await createRecommendationPrompt(values)
+      setRecommendationPrompts((currentPrompts) => sortRecommendationPrompts([...currentPrompts, createdPrompt]))
+      messageApi.success('推荐提示词已新增')
+    } finally {
+      setIsSavingRecommendationPrompt(false)
+    }
+  }
+
+  /** 移动推荐提示词顺序。 */
+  const moveRecommendationPrompt = async (promptId: string, direction: 'up' | 'down') => {
+    const currentIndex = recommendationPrompts.findIndex((prompt) => prompt.id === promptId)
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= recommendationPrompts.length) {
+      return
+    }
+
+    const nextPrompts = [...recommendationPrompts]
+    const movedPrompt = nextPrompts[currentIndex]
+    nextPrompts[currentIndex] = nextPrompts[targetIndex]
+    nextPrompts[targetIndex] = movedPrompt
+    setIsSavingRecommendationPrompt(true)
+
+    try {
+      const remotePrompts = await reorderRecommendationPrompts(nextPrompts.map((prompt) => prompt.id))
+      setRecommendationPrompts(sortRecommendationPrompts(remotePrompts))
+    } finally {
+      setIsSavingRecommendationPrompt(false)
+    }
+  }
+
+  /** 删除推荐提示词。 */
+  const removeRecommendationPrompt = async (promptId: string) => {
+    setIsSavingRecommendationPrompt(true)
+
+    try {
+      await deleteRecommendationPrompt(promptId)
+      const nextPrompts = recommendationPrompts.filter((prompt) => prompt.id !== promptId)
+      setRecommendationPrompts(nextPrompts)
+      messageApi.success('推荐提示词已删除')
+    } finally {
+      setIsSavingRecommendationPrompt(false)
+    }
+  }
+
+  /** 将指定餐次的推荐导入当前日期餐食记录。 */
+  const importRecommendationByMeal = async (meal: MealType) => {
+    const items = recommendation?.items.filter((item) => item.meal === meal) ?? []
+    const mealForms = items.flatMap((item) => {
+      const food = findFoodByRecommendationName(foods, item.foodName)
+      return food ? [createRecommendedMealForm(item, food.id, meal)] : []
+    })
+    const skippedCount = items.length - mealForms.length
+    const mealLabel = mealLabels[meal]
+
+    if (mealForms.length === 0) {
+      messageApi.warning(`没有匹配到食材库中的推荐食材，无法导入${mealLabel}记录`)
+      return
+    }
+
+    setImportingRecommendationMeal(meal)
+
+    try {
+      const nextEntries = mealSource !== 'local'
+        ? await createMealEntries(selectedDate, mealForms)
+        : mealForms.map((form) => ({ ...form, id: createId() }))
+
+      setEntries([...entries, ...nextEntries])
+      clearSkippedMeal(meal)
+      setMealSource(mealSource !== 'local' ? 'api' : 'local')
+      setRecommendation(null)
+      messageApi.success(`已导入 ${nextEntries.length} 条${mealLabel}记录`)
+
+      if (skippedCount > 0) {
+        messageApi.warning(`有 ${skippedCount} 条推荐食材未匹配到食材库，已跳过`)
+      }
+    } catch (error) {
+      if (!isUnauthorizedApiError(error)) {
+        throw error
+      }
+    } finally {
+      setImportingRecommendationMeal(null)
+    }
+  }
+
+  /** 登录账号。 */
+  const login = async (values: AuthLoginValues) => {
+    setIsSavingAuth(true)
+
+    try {
+      applyAuthResponse(await loginAuth(values))
+    } finally {
+      setIsSavingAuth(false)
+    }
+  }
+
+  /** 注册账号。 */
+  const register = async (values: AuthRegisterValues) => {
+    setIsSavingAuth(true)
+
+    try {
+      applyAuthResponse(await registerAuth(values))
+    } finally {
+      setIsSavingAuth(false)
+    }
+  }
+
+  /** 退出登录。 */
+  const logout = async () => {
+    try {
+      await logoutAuth()
+    } catch {
+      /** 退出接口失败也清理本地登录态。 */
+    } finally {
+      clearAuthToken()
+      setAuthUser(null)
+      resetBusinessState()
+      messageApi.success('已退出登录')
+    }
+  }
+
+  /** 导航到指定页面。 */
+  const navigateRoute = (route: AppRoute) => {
+    const nextPath = getPathFromRoute(route)
+
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState(null, '', nextPath)
+    }
+
+    setActiveRoute(route)
+  }
+
+  if (isCheckingAuth || !authUser) {
+    return (
+      <ConfigProvider locale={zhCN} theme={antdTheme}>
+        {messageContextHolder}
+        <AuthPage checking={isCheckingAuth} saving={isSavingAuth} onLogin={login} onRegister={register} />
+      </ConfigProvider>
+    )
+  }
+
+  if (!isProfileInitialized) {
+    return (
+      <ConfigProvider locale={zhCN} theme={antdTheme}>
+        {messageContextHolder}
+        <ProfileSetupPage
+          checking={isCheckingProfile}
+          saving={isSavingProfile}
+          userPhone={authUser.phone}
+          onLogout={logout}
+          onSubmit={submitProfileSetup}
+        />
+      </ConfigProvider>
+    )
+  }
+
+  return (
+    <ConfigProvider locale={zhCN} theme={antdTheme}>
+      {messageContextHolder}
+      <main className={appShellClassName}>
+        <header className="topbar">
+          <div className="topbar-brand">
+            <p className="app-label">复古铁馆 · 碳循环 · 本地工具</p>
+            <h1>碳训计划</h1>
+            <AppNav activeRoute={activeRoute} onNavigate={navigateRoute} />
+          </div>
+          <div className="topbar-actions">
+            <DatePicker
+              allowClear={false}
+              className="global-date-picker"
+              value={dayjs(selectedDate)}
+              onChange={(date) => {
+                if (date) {
+                  setSelectedDate(date.format('YYYY-MM-DD'))
+                }
+              }}
+            />
+            <StatusPill icon={<CalendarDays size={16} />} label={cycleLabels[cycleType]} />
+            <StatusPill icon={<Flame size={16} />} label={`${dailyPlan.calories} kcal`} />
+          </div>
+        </header>
+
+        <ProfilePanel
+          dailyPlan={dailyPlan}
+          isCollapsed={isProfileCollapsed}
+          profile={profile}
+          profileSource={profileSource}
+          user={authUser}
+          onEditProfile={openProfileModal}
+          onLogout={logout}
+          onToggleCollapse={toggleProfileCollapsed}
+        />
+
+        {activeRoute === 'foods' ? (
+          <FoodLibraryPage
+            foodSource={foodSource}
+            foods={foods}
+            importingFoodId={importingFoodId}
+            loadingPublicFoods={isLoadingPublicFoods}
+            publicFoods={publicFoods}
+            onCreateFood={openCreateFoodDrawer}
+            onEditFood={openEditFoodDrawer}
+            onImportFood={importPublicFood}
+            onOpenPublicFoods={loadPublicFoods}
+            onRemoveFood={removeFood}
+          />
+        ) : (
+          <DashboardPage
+            consumed={consumed}
+            cycleMacroSettings={cycleMacroSettings}
+            cycleType={cycleType}
+            dailyPlan={dailyPlan}
+            foods={foods}
+            importingRecommendationMeal={importingRecommendationMeal}
+            isRecommending={isRecommending}
+            isSavingPrompt={isSavingRecommendationPrompt}
+            mealEntries={mealEntries}
+            mealForm={mealForm}
+            mealSource={mealSource}
+            orderedRecommendationRequirement={orderedRecommendationRequirement}
+            recommendation={recommendation}
+            recommendationPrompts={recommendationPrompts}
+            remaining={remaining}
+            selectedDate={selectedDate}
+            skippedMeals={skippedMeals}
+            onAddMealEntry={addMealEntry}
+            onCycleTypeChange={setCycleType}
+            onEditCycleMacros={openCycleMacroModal}
+            onEditMealEntry={openEditMealEntry}
+            onImportRecommendation={importRecommendationByMeal}
+            onMealFormChange={setMealForm}
+            onMovePrompt={moveRecommendationPrompt}
+            onRemoveMealEntry={removeMealEntry}
+            onRemovePrompt={removeRecommendationPrompt}
+            onRequestRecommendation={requestRecommendation}
+            onResetMeals={resetMeals}
+            onRestoreMeal={restoreMeal}
+            onSavePrompt={saveRecommendationPromptForm}
+            onSkipMeal={skipMeal}
+          />
+        )}
+
+        <FoodDrawer
+          form={foodForm}
+          open={isFoodDrawerOpen}
+          saving={isSavingFood}
+          mode={editingFood ? 'edit' : 'create'}
+          onCancel={closeFoodDrawer}
+          onSubmit={submitFoodForm}
+        />
+        <ProfileModal
+          form={profileForm}
+          open={isProfileModalOpen}
+          saving={isSavingProfile}
+          onCancel={closeProfileModal}
+          onSubmit={submitProfileForm}
+        />
+        <MealEntryModal
+          foods={foods}
+          form={mealEntryForm}
+          open={isMealEntryModalOpen}
+          saving={isSavingMealEntry}
+          onCancel={closeMealEntryModal}
+          onSubmit={submitMealEntryForm}
+        />
+        <CycleMacroModal
+          form={cycleMacroForm}
+          open={isCycleMacroModalOpen}
+          onCancel={closeCycleMacroModal}
+          onSubmit={submitCycleMacroForm}
+        />
+      </main>
+    </ConfigProvider>
+  )
+}
+
+export default App
