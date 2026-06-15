@@ -66,3 +66,5 @@ export function ProfileSetupPage({
     </main>
   )
 }
+
+export default ProfileSetupPage

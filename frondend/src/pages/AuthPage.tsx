@@ -99,3 +99,5 @@ export function AuthPage({ checking = false, saving = false, onLogin, onRegister
     </main>
   )
 }
+
+export default AuthPage

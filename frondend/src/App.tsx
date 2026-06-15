@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { ConfigProvider, DatePicker, Form, message } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
@@ -99,12 +99,20 @@ import type {
 } from './types'
 import { groupEntriesByMeal } from './utils/meal'
 import { CycleMacroModal } from './components/CycleMacroModal'
-import { AuthPage } from './pages/AuthPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { FoodLibraryPage } from './pages/FoodLibraryPage'
-import { ProfileSetupPage } from './pages/ProfileSetupPage'
 
 dayjs.locale('zh-cn')
+
+/** 登录注册页懒加载组件。 */
+const AuthPage = lazy(() => import('./pages/AuthPage'))
+
+/** 训练计划页懒加载组件。 */
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+
+/** 食材库页懒加载组件。 */
+const FoodLibraryPage = lazy(() => import('./pages/FoodLibraryPage'))
+
+/** 首次建档页懒加载组件。 */
+const ProfileSetupPage = lazy(() => import('./pages/ProfileSetupPage'))
 
 /** 获取本地日期字符串。 */
 function getLocalDateString(date = new Date()) {
@@ -195,6 +203,15 @@ function findFoodByRecommendationName(foods: Food[], foodName: string) {
   const normalizedName = normalizeFoodName(foodName)
   return foods.find((food) => normalizeFoodName(food.name) === normalizedName)
     ?? foods.find((food) => normalizedName.includes(normalizeFoodName(food.name)))
+}
+
+/** 页面懒加载占位。 */
+function PageLoading() {
+  return (
+    <div className="page-loading">
+      <span>加载中</span>
+    </div>
+  )
 }
 
 /** 将推荐项转换为指定餐次录入表单。 */
@@ -1169,7 +1186,9 @@ function App() {
     return (
       <ConfigProvider locale={zhCN} theme={antdTheme}>
         {messageContextHolder}
-        <AuthPage checking={isCheckingAuth} saving={isSavingAuth} onLogin={login} onRegister={register} />
+        <Suspense fallback={<PageLoading />}>
+          <AuthPage checking={isCheckingAuth} saving={isSavingAuth} onLogin={login} onRegister={register} />
+        </Suspense>
       </ConfigProvider>
     )
   }
@@ -1178,13 +1197,15 @@ function App() {
     return (
       <ConfigProvider locale={zhCN} theme={antdTheme}>
         {messageContextHolder}
-        <ProfileSetupPage
-          checking={isCheckingProfile}
-          saving={isSavingProfile}
-          userPhone={authUser.phone}
-          onLogout={logout}
-          onSubmit={submitProfileSetup}
-        />
+        <Suspense fallback={<PageLoading />}>
+          <ProfileSetupPage
+            checking={isCheckingProfile}
+            saving={isSavingProfile}
+            userPhone={authUser.phone}
+            onLogout={logout}
+            onSubmit={submitProfileSetup}
+          />
+        </Suspense>
       </ConfigProvider>
     )
   }
@@ -1226,59 +1247,61 @@ function App() {
           onToggleCollapse={toggleProfileCollapsed}
         />
 
-        {activeRoute === 'foods' ? (
-          <FoodLibraryPage
-            foodSource={foodSource}
-            foods={foods}
-            importingFoodId={importingFoodId}
-            loadingPublicFoods={isLoadingPublicFoods}
-            publicFoods={publicFoods}
-            onCreateFood={openCreateFoodDrawer}
-            onEditFood={openEditFoodDrawer}
-            onImportFood={importPublicFood}
-            onOpenPublicFoods={loadPublicFoods}
-            onRemoveFood={removeFood}
-          />
-        ) : (
-          <DashboardPage
-            balanceLabel={balanceLabel}
-            balanceValue={balanceValue}
-            consumed={consumed}
-            dayLabels={dayLabels}
-            dayType={dayType}
-            dayTypes={dayTypes}
-            dailyPlan={dailyPlan}
-            foods={foods}
-            importingRecommendationMeal={importingRecommendationMeal}
-            isRecommending={isRecommending}
-            isSavingPrompt={isSavingRecommendationPrompt}
-            isSurplusBalance={isBulkingPlan}
-            mealEntries={mealEntries}
-            mealForm={mealForm}
-            mealSource={mealSource}
-            macroSummary={macroSummary}
-            orderedRecommendationRequirement={orderedRecommendationRequirement}
-            recommendation={recommendation}
-            recommendationPrompts={recommendationPrompts}
-            remaining={remaining}
-            selectedDate={selectedDate}
-            skippedMeals={skippedMeals}
-            onAddMealEntry={addMealEntry}
-            onDayTypeChange={changeDayType}
-            onEditCycleMacros={isBulkingPlan ? openBulkingMacroModal : openCycleMacroModal}
-            onEditMealEntry={openEditMealEntry}
-            onImportRecommendation={importRecommendationByMeal}
-            onMealFormChange={setMealForm}
-            onMovePrompt={moveRecommendationPrompt}
-            onRemoveMealEntry={removeMealEntry}
-            onRemovePrompt={removeRecommendationPrompt}
-            onRequestRecommendation={requestRecommendation}
-            onResetMeals={resetMeals}
-            onRestoreMeal={restoreMeal}
-            onSavePrompt={saveRecommendationPromptForm}
-            onSkipMeal={skipMeal}
-          />
-        )}
+        <Suspense fallback={<PageLoading />}>
+          {activeRoute === 'foods' ? (
+            <FoodLibraryPage
+              foodSource={foodSource}
+              foods={foods}
+              importingFoodId={importingFoodId}
+              loadingPublicFoods={isLoadingPublicFoods}
+              publicFoods={publicFoods}
+              onCreateFood={openCreateFoodDrawer}
+              onEditFood={openEditFoodDrawer}
+              onImportFood={importPublicFood}
+              onOpenPublicFoods={loadPublicFoods}
+              onRemoveFood={removeFood}
+            />
+          ) : (
+            <DashboardPage
+              balanceLabel={balanceLabel}
+              balanceValue={balanceValue}
+              consumed={consumed}
+              dayLabels={dayLabels}
+              dayType={dayType}
+              dayTypes={dayTypes}
+              dailyPlan={dailyPlan}
+              foods={foods}
+              importingRecommendationMeal={importingRecommendationMeal}
+              isRecommending={isRecommending}
+              isSavingPrompt={isSavingRecommendationPrompt}
+              isSurplusBalance={isBulkingPlan}
+              mealEntries={mealEntries}
+              mealForm={mealForm}
+              mealSource={mealSource}
+              macroSummary={macroSummary}
+              orderedRecommendationRequirement={orderedRecommendationRequirement}
+              recommendation={recommendation}
+              recommendationPrompts={recommendationPrompts}
+              remaining={remaining}
+              selectedDate={selectedDate}
+              skippedMeals={skippedMeals}
+              onAddMealEntry={addMealEntry}
+              onDayTypeChange={changeDayType}
+              onEditCycleMacros={isBulkingPlan ? openBulkingMacroModal : openCycleMacroModal}
+              onEditMealEntry={openEditMealEntry}
+              onImportRecommendation={importRecommendationByMeal}
+              onMealFormChange={setMealForm}
+              onMovePrompt={moveRecommendationPrompt}
+              onRemoveMealEntry={removeMealEntry}
+              onRemovePrompt={removeRecommendationPrompt}
+              onRequestRecommendation={requestRecommendation}
+              onResetMeals={resetMeals}
+              onRestoreMeal={restoreMeal}
+              onSavePrompt={saveRecommendationPromptForm}
+              onSkipMeal={skipMeal}
+            />
+          )}
+        </Suspense>
 
         <FoodDrawer
           form={foodForm}

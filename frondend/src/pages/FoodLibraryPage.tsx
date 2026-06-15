@@ -365,3 +365,5 @@ function FoodStat({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
+export default FoodLibraryPage
