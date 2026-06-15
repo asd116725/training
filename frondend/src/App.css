@@ -4,23 +4,6 @@
   transition: padding-left 0.22s ease;
 }
 
-.page-loading {
-  align-items: center;
-  color: var(--muted);
-  display: grid;
-  font-size: 14px;
-  font-weight: 800;
-  min-height: 220px;
-  place-items: center;
-}
-
-.page-loading span {
-  background: rgba(57, 255, 136, 0.08);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 18px;
-}
-
 .auth-shell {
   align-items: center;
   display: grid;

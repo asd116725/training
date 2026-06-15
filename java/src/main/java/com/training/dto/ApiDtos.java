@@ -109,11 +109,27 @@ public final class ApiDtos {
             @NotNull LocalDate date,
             @NotBlank String mealType,
             @NotNull Long foodId,
-            @Positive double grams) {
+            @Positive double grams,
+            String cuttingCycleType,
+            String bulkingDayType) {
     }
 
     /** 批量餐食明细请求。 */
     public record MealEntryBatchRequest(@Valid @NotNull List<MealEntryRequest> items) {
+    }
+
+    /** 餐食日型切换请求。 */
+    public record MealDayTypeRequest(
+            @NotNull LocalDate date,
+            @NotBlank String planType,
+            @NotBlank String dayType) {
+    }
+
+    /** 单日餐食响应。 */
+    public record MealDayResponse(
+            List<MealEntryResponse> entries,
+            String cuttingCycleType,
+            String bulkingDayType) {
     }
 
     /** 餐食明细响应。 */

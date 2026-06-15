@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS meal_logs (
   user_id BIGINT,
   log_date DATE NOT NULL,
   meal_type VARCHAR(40) NOT NULL,
+  cutting_cycle_type VARCHAR(40) NOT NULL DEFAULT 'MEDIUM',
+  bulking_day_type VARCHAR(40) NOT NULL DEFAULT 'TRAINING',
   UNIQUE KEY uk_meal_logs_user_date_type (user_id, log_date, meal_type),
   CONSTRAINT fk_meal_logs_user FOREIGN KEY (user_id) REFERENCES app_users (id)
 );

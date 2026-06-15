@@ -1,4 +1,4 @@
-import type { MealType, NutritionTotals, Profile, RecommendedItem } from './domain'
+import type { BulkingDayType, CycleType, MealEntry, MealType, NutritionTotals, Profile, RecommendedItem } from './domain'
 
 /** 应用页面路由。 */
 export type AppRoute = 'cutting' | 'bulking' | 'foods'
@@ -63,6 +63,14 @@ export interface FoodFormValues {
   remark: string
 }
 
+/** 食材编辑草稿表单，允许新增时数字为空。 */
+export interface FoodFormDraftValues extends Omit<FoodFormValues, 'carbs' | 'protein' | 'fat' | 'calories'> {
+  carbs?: number | null
+  protein?: number | null
+  fat?: number | null
+  calories?: number | null
+}
+
 /** 食材编辑器模式。 */
 export type FoodEditorMode = 'create' | 'edit'
 
@@ -74,6 +82,13 @@ export type ProfileSource = 'loading' | 'api' | 'local'
 
 /** 餐食记录来源状态。 */
 export type MealSource = 'loading' | 'api' | 'local'
+
+/** 单日餐食状态。 */
+export interface MealDayState {
+  entries: MealEntry[]
+  cuttingCycleType: CycleType
+  bulkingDayType: BulkingDayType
+}
 
 /** 已跳过餐次状态。 */
 export type SkippedMeals = Partial<Record<MealType, boolean>>

@@ -8,10 +8,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.training.dto.ApiDtos.MealDayResponse;
+import com.training.dto.ApiDtos.MealDayTypeRequest;
 import com.training.dto.ApiDtos.MealEntryRequest;
 import com.training.dto.ApiDtos.MealEntryResponse;
 import com.training.dto.ApiDtos.NutritionTotals;
 import com.training.model.AppUser;
+import com.training.model.CycleType;
 import com.training.model.Food;
 import com.training.model.MealLog;
 import com.training.model.MealLogItem;
@@ -22,6 +25,12 @@ import com.training.repository.MealLogRepository;
 /** 餐食记录业务服务。 */
 @Service
 public class MealLogService {
+
+    /** 默认减脂日型。 */
+    private static final CycleType DEFAULT_CUTTING_CYCLE_TYPE = CycleType.MEDIUM;
+
+    /** 默认增肌日型。 */
+    private static final CycleType DEFAULT_BULKING_DAY_TYPE = CycleType.TRAINING;
 
     /** 餐次仓库。 */
     private final MealLogRepository mealLogRepository;
@@ -49,15 +58,16 @@ public class MealLogService {
     }
 
     /** 查询某天餐食。 */
-    public List<MealEntryResponse> listByDate(LocalDate date) {
-        return mealLogItemRepository.findByMealLogUserAndMealLogLogDate(currentUserContext.get(), date).stream()
-                .map(this::toResponse).toList();
+    public MealDayResponse listByDate(LocalDate date) {
+        return toMealDayResponse(mealLogItemRepository.findByMealLogUserAndMealLogLogDate(currentUserContext.get(), date));
     }
 
     /** 添加餐食明细。 */
     public MealEntryResponse addEntry(MealEntryRequest request) {
         MealType mealType = parseMealType(request.mealType());
         MealLog mealLog = getOrCreateMealLog(currentUserContext.get(), request.date(), mealType);
+        applyDayTypes(mealLog, request);
+        mealLogRepository.save(mealLog);
         Food food = foodService.getOwnedFood(request.foodId());
         return toResponse(mealLogItemRepository.save(new MealLogItem(mealLog, food, request.grams())));
     }
@@ -73,6 +83,8 @@ public class MealLogService {
         MealLogItem item = getEntry(id);
         MealType mealType = parseMealType(request.mealType());
         item.mealLog = getOrCreateMealLog(currentUserContext.get(), request.date(), mealType);
+        applyDayTypes(item.mealLog, request);
+        mealLogRepository.save(item.mealLog);
         item.food = foodService.getOwnedFood(request.foodId());
         item.grams = request.grams();
         return toResponse(mealLogItemRepository.save(item));
@@ -88,10 +100,38 @@ public class MealLogService {
         mealLogItemRepository.deleteAll(mealLogItemRepository.findByMealLogUserAndMealLogLogDate(currentUserContext.get(), date));
     }
 
+    /** 更新某天已有餐食绑定的计划日型。 */
+    public MealDayResponse updateDayType(MealDayTypeRequest request) {
+        List<MealLogItem> items = mealLogItemRepository.findByMealLogUserAndMealLogLogDate(currentUserContext.get(),
+                request.date());
+        List<MealLog> mealLogs = items.stream().map(item -> item.mealLog).distinct().toList();
+
+        if (mealLogs.isEmpty()) {
+            return toMealDayResponse(items);
+        }
+
+        if ("bulking".equalsIgnoreCase(request.planType())) {
+            CycleType dayType = parseBulkingDayType(request.dayType());
+            mealLogs.forEach(mealLog -> mealLog.bulkingDayType = dayType);
+        } else {
+            CycleType cycleType = parseCuttingCycleType(request.dayType());
+            mealLogs.forEach(mealLog -> mealLog.cuttingCycleType = cycleType);
+        }
+
+        mealLogRepository.saveAll(mealLogs);
+        return toMealDayResponse(items);
+    }
+
     /** 获取或创建某天某餐次。 */
     private MealLog getOrCreateMealLog(AppUser user, LocalDate date, MealType mealType) {
         return mealLogRepository.findFirstByUserAndLogDateAndMealTypeOrderByIdAsc(user, date, mealType)
                 .orElseGet(() -> mealLogRepository.save(new MealLog(user, date, mealType)));
+    }
+
+    /** 写入餐食记录绑定日型。 */
+    private void applyDayTypes(MealLog mealLog, MealEntryRequest request) {
+        mealLog.cuttingCycleType = parseCuttingCycleType(request.cuttingCycleType());
+        mealLog.bulkingDayType = parseBulkingDayType(request.bulkingDayType());
     }
 
     /** 查询餐食明细。 */
@@ -117,6 +157,50 @@ public class MealLogService {
             case "dinner", "DINNER" -> MealType.DINNER;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "餐次类型不正确");
         };
+    }
+
+    /** 解析减脂日型。 */
+    private CycleType parseCuttingCycleType(String value) {
+        if ("high".equalsIgnoreCase(value) || "HIGH".equalsIgnoreCase(value)) {
+            return CycleType.HIGH;
+        }
+        if ("low".equalsIgnoreCase(value) || "LOW".equalsIgnoreCase(value)) {
+            return CycleType.LOW;
+        }
+        return DEFAULT_CUTTING_CYCLE_TYPE;
+    }
+
+    /** 解析增肌日型。 */
+    private CycleType parseBulkingDayType(String value) {
+        return "rest".equalsIgnoreCase(value) || "REST".equalsIgnoreCase(value)
+                ? CycleType.REST
+                : DEFAULT_BULKING_DAY_TYPE;
+    }
+
+    /** 转换为前端日型值。 */
+    private String toClientDayType(CycleType cycleType) {
+        return switch (cycleType) {
+            case HIGH -> "high";
+            case LOW -> "low";
+            case TRAINING -> "training";
+            case REST -> "rest";
+            default -> "medium";
+        };
+    }
+
+    /** 转换单日餐食响应。 */
+    private MealDayResponse toMealDayResponse(List<MealLogItem> items) {
+        CycleType cuttingCycleType = items.stream()
+                .map(item -> item.mealLog.cuttingCycleType)
+                .findFirst()
+                .orElse(DEFAULT_CUTTING_CYCLE_TYPE);
+        CycleType bulkingDayType = items.stream()
+                .map(item -> item.mealLog.bulkingDayType)
+                .findFirst()
+                .orElse(DEFAULT_BULKING_DAY_TYPE);
+
+        return new MealDayResponse(items.stream().map(this::toResponse).toList(), toClientDayType(cuttingCycleType),
+                toClientDayType(bulkingDayType));
     }
 
     /** 转换餐食响应。 */

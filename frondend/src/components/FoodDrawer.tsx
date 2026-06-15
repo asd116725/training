@@ -3,14 +3,14 @@ import type { FormInstance, InputNumberProps } from 'antd'
 import { Check, Table2, X } from 'lucide-react'
 import type { ChangeEventHandler } from 'react'
 import { defaultFoodForm } from '../config'
-import type { FoodEditorMode, FoodFormValues } from '../types'
+import type { FoodEditorMode, FoodFormDraftValues } from '../types'
 
 /** 食材营养字段配置。 */
 const foodNutritionFields: Array<{
   label: string
   mark: string
   message: string
-  name: Exclude<keyof FoodFormValues, 'name' | 'remark'>
+  name: Exclude<keyof FoodFormDraftValues, 'name' | 'remark'>
   note: string
   precision: number
   unit: string
@@ -54,7 +54,7 @@ export function FoodDrawer({
   onCancel,
   onSubmit,
 }: {
-  form: FormInstance<FoodFormValues>
+  form: FormInstance<FoodFormDraftValues>
   mode: FoodEditorMode
   open: boolean
   saving: boolean
@@ -96,7 +96,7 @@ export function FoodDrawer({
           </span>
         </div>
       }
-      width={520}
+      size={520}
       onClose={onCancel}
     >
       <Form className="food-editor-form" form={form} initialValues={defaultFoodForm} layout="vertical" requiredMark={false}>

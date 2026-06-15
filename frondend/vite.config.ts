@@ -10,7 +10,6 @@ const vendorChunkGroups = [
   },
   {
     name: 'antd-vendor',
-    maxSize: 460 * 1024,
     priority: 20,
     test: /node_modules[\\/](antd|@ant-design|@rc-component|rc-[^\\/]+|classnames|copy-to-clipboard|throttle-debounce|compute-scroll-into-view|scroll-into-view-if-needed)[\\/]/,
   },

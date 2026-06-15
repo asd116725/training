@@ -1,10 +1,22 @@
-import { normalizeCycleMacroSettings, type CycleMacroSettings, type Food, type MealEntry, type MealType, type Profile } from './domain'
+import {
+  normalizeCycleMacroSettings,
+  type BulkingDayType,
+  type CycleMacroSettings,
+  type CycleType,
+  type Food,
+  type MealEntry,
+  type MealType,
+  type PlanDayType,
+  type PlanType,
+  type Profile,
+} from './domain'
 import type {
   AuthLoginValues,
   AuthRegisterValues,
   AuthResponse,
   MealFormState,
   FoodFormValues,
+  MealDayState,
   ProfileStatus,
   RecommendationPrompt,
   RecommendationPromptFormValues,
@@ -91,6 +103,13 @@ interface MealEntryResponse {
   fat: number
 }
 
+/** 后端单日餐食响应。 */
+interface MealDayResponse {
+  entries: MealEntryResponse[]
+  cuttingCycleType?: string
+  bulkingDayType?: string
+}
+
 /** 个人信息保存请求。 */
 type ProfileRequest = Profile
 
@@ -100,6 +119,15 @@ interface MealEntryRequest {
   mealType: MealType
   foodId: number
   grams: number
+  cuttingCycleType: CycleType
+  bulkingDayType: BulkingDayType
+}
+
+/** 餐食日型保存请求。 */
+interface MealDayTypeRequest {
+  date: string
+  planType: PlanType
+  dayType: PlanDayType
 }
 
 /** 碳循环宏量配置响应。 */
@@ -263,13 +291,45 @@ function normalizeMealEntry(entry: MealEntryResponse): MealEntry {
   }
 }
 
+/** 转换减脂日型。 */
+function normalizeCuttingCycleType(value?: string): CycleType {
+  if (value === 'high' || value === 'HIGH') {
+    return 'high'
+  }
+  if (value === 'low' || value === 'LOW') {
+    return 'low'
+  }
+  return 'medium'
+}
+
+/** 转换增肌日型。 */
+function normalizeBulkingDayType(value?: string): BulkingDayType {
+  return value === 'rest' || value === 'REST' ? 'rest' : 'training'
+}
+
+/** 转换单日餐食状态。 */
+function normalizeMealDayState(response: MealDayResponse): MealDayState {
+  return {
+    entries: response.entries.map(normalizeMealEntry),
+    cuttingCycleType: normalizeCuttingCycleType(response.cuttingCycleType),
+    bulkingDayType: normalizeBulkingDayType(response.bulkingDayType),
+  }
+}
+
 /** 创建餐食保存请求。 */
-function createMealEntryRequest(date: string, mealForm: MealFormState): MealEntryRequest {
+function createMealEntryRequest(
+  date: string,
+  mealForm: MealFormState,
+  cuttingCycleType: CycleType,
+  bulkingDayType: BulkingDayType,
+): MealEntryRequest {
   return {
     date,
     mealType: mealForm.meal,
     foodId: Number(mealForm.foodId),
     grams: mealForm.grams,
+    cuttingCycleType,
+    bulkingDayType,
   }
 }
 
@@ -373,42 +433,68 @@ export async function saveCycleMacroSettings(settings: CycleMacroSettings): Prom
   return normalizeCycleMacroSettings((await response.json()) as CycleMacroSettingsResponse)
 }
 
-/** 查询某天餐食明细。 */
-export async function fetchMealEntries(date: string, signal?: AbortSignal): Promise<MealEntry[]> {
+/** 查询某天餐食状态。 */
+export async function fetchMealDayState(date: string, signal?: AbortSignal): Promise<MealDayState> {
   const response = await requestApi(`/api/meals?date=${encodeURIComponent(date)}`, { signal })
-  const entries = (await response.json()) as MealEntryResponse[]
-  return entries.map(normalizeMealEntry)
+  return normalizeMealDayState((await response.json()) as MealDayResponse)
 }
 
 /** 新增餐食明细。 */
-export async function createMealEntry(date: string, mealForm: MealFormState): Promise<MealEntry> {
+export async function createMealEntry(
+  date: string,
+  mealForm: MealFormState,
+  cuttingCycleType: CycleType,
+  bulkingDayType: BulkingDayType,
+): Promise<MealEntry> {
   const response = await requestApi('/api/meals/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(createMealEntryRequest(date, mealForm)),
+    body: JSON.stringify(createMealEntryRequest(date, mealForm, cuttingCycleType, bulkingDayType)),
   })
   return normalizeMealEntry((await response.json()) as MealEntryResponse)
 }
 
 /** 批量新增餐食明细。 */
-export async function createMealEntries(date: string, mealForms: MealFormState[]): Promise<MealEntry[]> {
+export async function createMealEntries(
+  date: string,
+  mealForms: MealFormState[],
+  cuttingCycleType: CycleType,
+  bulkingDayType: BulkingDayType,
+): Promise<MealEntry[]> {
   const response = await requestApi('/api/meals/items/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: mealForms.map((mealForm) => createMealEntryRequest(date, mealForm)) }),
+    body: JSON.stringify({ items: mealForms.map((mealForm) => createMealEntryRequest(date, mealForm, cuttingCycleType, bulkingDayType)) }),
   })
   const entries = (await response.json()) as MealEntryResponse[]
   return entries.map(normalizeMealEntry)
 }
 
 /** 更新餐食明细。 */
-export async function updateMealEntry(id: string, date: string, mealForm: MealFormState): Promise<MealEntry> {
+export async function updateMealEntry(
+  id: string,
+  date: string,
+  mealForm: MealFormState,
+  cuttingCycleType: CycleType,
+  bulkingDayType: BulkingDayType,
+): Promise<MealEntry> {
   const response = await requestApi(`/api/meals/items/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(createMealEntryRequest(date, mealForm)),
+    body: JSON.stringify(createMealEntryRequest(date, mealForm, cuttingCycleType, bulkingDayType)),
   })
   return normalizeMealEntry((await response.json()) as MealEntryResponse)
+}
+
+/** 保存某天绑定日型。 */
+export async function saveMealDayType(date: string, planType: PlanType, dayType: PlanDayType): Promise<MealDayState> {
+  const request: MealDayTypeRequest = { date, planType, dayType }
+  const response = await requestApi('/api/meals/day-type', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+  return normalizeMealDayState((await response.json()) as MealDayResponse)
 }
 
 /** 删除餐食明细。 */

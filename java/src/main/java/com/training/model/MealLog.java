@@ -2,6 +2,7 @@ package com.training.model;
 
 import java.time.LocalDate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -33,6 +34,16 @@ public class MealLog {
     /** 餐次。 */
     @Enumerated(EnumType.STRING)
     public MealType mealType;
+
+    /** 减脂计划日型。 */
+    @Column(name = "cutting_cycle_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    public CycleType cuttingCycleType = CycleType.MEDIUM;
+
+    /** 增肌计划日型。 */
+    @Column(name = "bulking_day_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    public CycleType bulkingDayType = CycleType.TRAINING;
 
     /** JPA 构造函数。 */
     protected MealLog() {

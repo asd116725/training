@@ -2,7 +2,6 @@ package com.training.controller;
 
 import java.time.LocalDate;
 import java.util.List;
-
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -16,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.training.dto.ApiDtos.MealDayResponse;
+import com.training.dto.ApiDtos.MealDayTypeRequest;
 import com.training.dto.ApiDtos.MealEntryBatchRequest;
 import com.training.dto.ApiDtos.MealEntryRequest;
 import com.training.dto.ApiDtos.MealEntryResponse;
@@ -39,7 +40,7 @@ public class MealLogController {
 
     /** 查询某天餐食。 */
     @GetMapping
-    public List<MealEntryResponse> listByDate(
+    public MealDayResponse listByDate(
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return mealLogService.listByDate(date == null ? LocalDate.now() : date);
@@ -55,6 +56,12 @@ public class MealLogController {
     @PostMapping("/items/batch")
     public List<MealEntryResponse> addEntries(@Valid @RequestBody MealEntryBatchRequest request) {
         return mealLogService.addEntries(request.items());
+    }
+
+    /** 更新某天绑定日型。 */
+    @PutMapping("/day-type")
+    public MealDayResponse updateDayType(@Valid @RequestBody MealDayTypeRequest request) {
+        return mealLogService.updateDayType(request);
     }
 
     /** 修改餐食明细。 */

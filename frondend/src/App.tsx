@@ -19,7 +19,7 @@ import {
   fetchCurrentUser,
   fetchCycleMacroSettings,
   fetchFoods,
-  fetchMealEntries,
+  fetchMealDayState,
   fetchProfileStatus,
   fetchPublicFoods,
   fetchRecommendationPrompts,
@@ -32,6 +32,7 @@ import {
   registerAuth,
   requestApi,
   saveCycleMacroSettings,
+  saveMealDayType,
   saveProfile,
   setApiErrorNotifier,
   setAuthToken,
@@ -43,6 +44,7 @@ import {
 import { AppNav } from './components/AppNav'
 import { FoodDrawer } from './components/FoodDrawer'
 import { MealEntryModal } from './components/MealEntryModal'
+import { PageLoading } from './components/PageLoading'
 import { ProfilePanel } from './components/ProfilePanel'
 import { ProfileModal } from './components/ProfileModal'
 import { StatusPill } from './components/Common'
@@ -86,8 +88,10 @@ import type {
   AuthResponse,
   AuthRegisterValues,
   AuthUser,
-  MealDraftFormState,
+  FoodFormDraftValues,
   FoodFormValues,
+  MealDayState,
+  MealDraftFormState,
   FoodSource,
   MealFormState,
   MealSource,
@@ -114,12 +118,23 @@ const FoodLibraryPage = lazy(() => import('./pages/FoodLibraryPage'))
 /** 首次建档页懒加载组件。 */
 const ProfileSetupPage = lazy(() => import('./pages/ProfileSetupPage'))
 
+/** 应用页面路由列表。 */
+const appRoutes: AppRoute[] = ['cutting', 'bulking', 'foods']
+
+/** 当前导航 Tab 本地缓存键。 */
+const activeRouteStorageKey = 'training-active-route'
+
 /** 获取本地日期字符串。 */
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/** 判断是否为应用页面路由。 */
+function isAppRoute(route: unknown): route is AppRoute {
+  return typeof route === 'string' && appRoutes.includes(route as AppRoute)
 }
 
 /** 根据地址识别当前页面。 */
@@ -129,6 +144,35 @@ function getRouteFromPath(pathname: string): AppRoute {
   }
 
   return pathname.startsWith('/bulking') ? 'bulking' : 'cutting'
+}
+
+/** 将已校验的食材草稿转换为保存数据。 */
+function normalizeFoodFormValues(values: FoodFormDraftValues): FoodFormValues {
+  return {
+    name: values.name,
+    carbs: Number(values.carbs),
+    protein: Number(values.protein),
+    fat: Number(values.fat),
+    calories: Number(values.calories),
+    remark: values.remark,
+  }
+}
+
+/** 获取本地缓存的导航页面。 */
+function getStoredRoute(fallback: AppRoute) {
+  try {
+    const cachedRoute = localStorage.getItem(activeRouteStorageKey)
+    const parsedRoute = cachedRoute ? JSON.parse(cachedRoute) : fallback
+    return isAppRoute(parsedRoute) ? parsedRoute : fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** 获取初始导航页面。 */
+function getInitialRoute() {
+  const routeFromPath = getRouteFromPath(window.location.pathname)
+  return window.location.pathname === '/' ? getStoredRoute(routeFromPath) : routeFromPath
 }
 
 /** 获取页面对应地址。 */
@@ -165,6 +209,62 @@ function getCalorieBalance(planType: PlanType, calories: number, tdee: number) {
 /** 创建餐食本地缓存 key。 */
 function createMealCacheKey(date: string, userId?: number) {
   return userId ? `training-user-${userId}-entries-${date}` : `training-entries-${date}`
+}
+
+/** 判断是否为减脂日型。 */
+function isCycleType(value: unknown): value is CycleType {
+  return typeof value === 'string' && cycleTypes.includes(value as CycleType)
+}
+
+/** 判断是否为增肌日型。 */
+function isBulkingDayType(value: unknown): value is BulkingDayType {
+  return typeof value === 'string' && bulkingDayTypes.includes(value as BulkingDayType)
+}
+
+/** 创建单日餐食状态。 */
+function createMealDayState(
+  entries: MealEntry[],
+  cuttingCycleType: CycleType = 'medium',
+  bulkingDayType: BulkingDayType = 'training',
+): MealDayState {
+  return { entries, cuttingCycleType, bulkingDayType }
+}
+
+/** 读取兼容旧格式的餐食缓存。 */
+function readMealDayCache(key: string, fallback = createMealDayState([])): MealDayState {
+  try {
+    const cached = localStorage.getItem(key)
+
+    if (!cached) {
+      return fallback
+    }
+
+    const parsed = JSON.parse(cached) as unknown
+
+    if (Array.isArray(parsed)) {
+      return createMealDayState(parsed as MealEntry[], fallback.cuttingCycleType, fallback.bulkingDayType)
+    }
+
+    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as Partial<MealDayState>).entries)) {
+      const state = parsed as Partial<MealDayState>
+      const entries = state.entries ?? []
+      return createMealDayState(
+        entries,
+        entries.length && isCycleType(state.cuttingCycleType) ? state.cuttingCycleType : fallback.cuttingCycleType,
+        entries.length && isBulkingDayType(state.bulkingDayType) ? state.bulkingDayType : fallback.bulkingDayType,
+      )
+    }
+
+    return fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** 写入单日餐食缓存。 */
+function writeMealDayCache(key: string, state: MealDayState) {
+  const cacheState = state.entries.length ? state : { entries: state.entries }
+  localStorage.setItem(key, JSON.stringify(cacheState))
 }
 
 /** 创建跳过餐次本地缓存 key。 */
@@ -205,15 +305,6 @@ function findFoodByRecommendationName(foods: Food[], foodName: string) {
     ?? foods.find((food) => normalizedName.includes(normalizeFoodName(food.name)))
 }
 
-/** 页面懒加载占位。 */
-function PageLoading() {
-  return (
-    <div className="page-loading">
-      <span>加载中</span>
-    </div>
-  )
-}
-
 /** 将推荐项转换为指定餐次录入表单。 */
 function createRecommendedMealForm(item: RecommendedItem, foodId: string, meal: MealType): MealFormState {
   return {
@@ -230,14 +321,14 @@ function isCompleteMealForm(mealForm: MealDraftFormState): mealForm is MealFormS
 
 /** 主应用组件。 */
 function App() {
-  const [foodForm] = Form.useForm<FoodFormValues>()
+  const [foodForm] = Form.useForm<FoodFormDraftValues>()
   const [profileForm] = Form.useForm<Profile>()
   const [mealEntryForm] = Form.useForm<MealFormState>()
   const [cycleMacroForm] = Form.useForm<CycleMacroSettings>()
   const [bulkingMacroForm] = Form.useForm<BulkingMacroSettings>()
   /** 全局消息提示实例。 */
   const [messageApi, messageContextHolder] = message.useMessage()
-  const [activeRoute, setActiveRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
+  const [activeRoute, setActiveRouteState] = useState<AppRoute>(getInitialRoute)
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isSavingAuth, setIsSavingAuth] = useState(false)
@@ -284,6 +375,12 @@ function App() {
   /** 是否正在展示增肌计划。 */
   const isBulkingPlan = activePlanType === 'bulking'
 
+  /** 更新导航 Tab 并同步本地缓存。 */
+  const setActiveRoute = useCallback((route: AppRoute) => {
+    setActiveRouteState(route)
+    localStorage.setItem(activeRouteStorageKey, JSON.stringify(route))
+  }, [])
+
   /** 更新碳循环宏量配置并同步本地缓存。 */
   const setCycleMacroSettings = useCallback((nextSettings: CycleMacroSettings) => {
     const normalizedSettings = normalizeCycleMacroSettings(nextSettings)
@@ -302,9 +399,9 @@ function App() {
   const setEntries = useCallback((nextEntries: MealEntry[]) => {
     setEntriesState(nextEntries)
     if (authUser) {
-      localStorage.setItem(createMealCacheKey(selectedDate, authUser.id), JSON.stringify(nextEntries))
+      writeMealDayCache(createMealCacheKey(selectedDate, authUser.id), createMealDayState(nextEntries, cycleType, bulkingDayType))
     }
-  }, [authUser, selectedDate])
+  }, [authUser, bulkingDayType, cycleType, selectedDate])
 
   /** 更新当前日期跳过餐次并同步本地缓存。 */
   const setSkippedMeals = useCallback((nextSkippedMeals: SkippedMeals) => {
@@ -397,7 +494,7 @@ function App() {
     window.addEventListener('popstate', syncRoute)
 
     return () => window.removeEventListener('popstate', syncRoute)
-  }, [])
+  }, [setActiveRoute])
 
   useEffect(() => {
     /** 展示全局接口错误提示。 */
@@ -552,10 +649,8 @@ function App() {
     }
 
     const controller = new AbortController()
-    const cachedEntries = readStoredState<MealEntry[]>(
-      createMealCacheKey(selectedDate, authUser.id),
-      [],
-    )
+    const mealCacheKey = createMealCacheKey(selectedDate, authUser.id)
+    const cachedMealDayState = readMealDayCache(mealCacheKey)
     const cachedSkippedMeals = readStoredState<SkippedMeals>(createMealSkipCacheKey(selectedDate, authUser.id), {})
     const cachedRecommendation = readStoredState<RecommendationState | null>(
       createRecommendationCacheKey(selectedDate, activePlanType, authUser.id),
@@ -565,7 +660,9 @@ function App() {
     /** 同步当前日期缓存餐食。 */
     const syncCachedEntries = () => {
       setMealSource('loading')
-      setEntriesState(cachedEntries)
+      setEntriesState(cachedMealDayState.entries)
+      setCycleType(cachedMealDayState.cuttingCycleType)
+      setBulkingDayType(cachedMealDayState.bulkingDayType)
       setSkippedMealsState(cachedSkippedMeals)
       setRecommendationState(cachedRecommendation)
     }
@@ -573,16 +670,20 @@ function App() {
     /** 从后端加载指定日期餐食，失败时使用本地缓存。 */
     const loadMealEntries = async () => {
       try {
-        const remoteEntries = await fetchMealEntries(selectedDate, controller.signal)
-        setEntriesState(remoteEntries)
-        localStorage.setItem(createMealCacheKey(selectedDate, authUser.id), JSON.stringify(remoteEntries))
+        const remoteMealDayState = await fetchMealDayState(selectedDate, controller.signal)
+        setEntriesState(remoteMealDayState.entries)
+        setCycleType(remoteMealDayState.cuttingCycleType)
+        setBulkingDayType(remoteMealDayState.bulkingDayType)
+        writeMealDayCache(mealCacheKey, remoteMealDayState)
         setMealSource('api')
       } catch (error) {
         if (isUnauthorizedApiError(error)) {
           return
         }
 
-        setEntriesState(cachedEntries)
+        setEntriesState(cachedMealDayState.entries)
+        setCycleType(cachedMealDayState.cuttingCycleType)
+        setBulkingDayType(cachedMealDayState.bulkingDayType)
         setMealSource('local')
       }
     }
@@ -591,7 +692,7 @@ function App() {
     loadMealEntries()
 
     return () => controller.abort()
-  }, [activePlanType, authUser, isProfileInitialized, selectedDate])
+  }, [activePlanType, authUser, isProfileInitialized, selectedDate, setBulkingDayType, setCycleType])
 
   useEffect(() => {
     if (!authUser || !isProfileInitialized) {
@@ -786,7 +887,7 @@ function App() {
 
   /** 提交食材抽屉表单。 */
   const submitFoodForm = async () => {
-    const values = await foodForm.validateFields()
+    const values = normalizeFoodFormValues(await foodForm.validateFields())
     await saveFood(values)
   }
 
@@ -876,7 +977,9 @@ function App() {
     }
 
     try {
-      const nextEntry = mealSource !== 'local' ? await createMealEntry(selectedDate, mealForm) : { ...mealForm, id: createId() }
+      const nextEntry = mealSource !== 'local'
+        ? await createMealEntry(selectedDate, mealForm, cycleType, bulkingDayType)
+        : { ...mealForm, id: createId() }
       setEntries([...entries, nextEntry])
       clearSkippedMeal(mealForm.meal)
       setRecommendation(null)
@@ -921,7 +1024,7 @@ function App() {
 
     try {
       const nextEntry = mealSource !== 'local'
-        ? await updateMealEntry(editingMealEntry.id, selectedDate, values)
+        ? await updateMealEntry(editingMealEntry.id, selectedDate, values, cycleType, bulkingDayType)
         : { ...editingMealEntry, ...values }
       setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
       clearSkippedMeal(values.meal)
@@ -1103,7 +1206,7 @@ function App() {
 
     try {
       const nextEntries = mealSource !== 'local'
-        ? await createMealEntries(selectedDate, mealForms)
+        ? await createMealEntries(selectedDate, mealForms, cycleType, bulkingDayType)
         : mealForms.map((form) => ({ ...form, id: createId() }))
 
       setEntries([...entries, ...nextEntries])
@@ -1172,17 +1275,52 @@ function App() {
   }
 
   /** 切换当前计划日型。 */
-  const changeDayType = (nextDayType: PlanDayType) => {
+  const changeDayType = async (nextDayType: PlanDayType) => {
+    const nextCycleType = isBulkingPlan ? cycleType : nextDayType as CycleType
+    const nextBulkingDayType = isBulkingPlan ? nextDayType as BulkingDayType : bulkingDayType
+
     if (isBulkingPlan) {
-      setBulkingDayType(nextDayType as BulkingDayType)
+      setBulkingDayType(nextBulkingDayType)
     } else {
-      setCycleType(nextDayType as CycleType)
+      setCycleType(nextCycleType)
+    }
+
+    if (authUser) {
+      writeMealDayCache(createMealCacheKey(selectedDate, authUser.id), createMealDayState(entries, nextCycleType, nextBulkingDayType))
     }
 
     setRecommendation(null)
+
+    if (entries.length === 0 || mealSource === 'local') {
+      return
+    }
+
+    try {
+      const remoteMealDayState = await saveMealDayType(selectedDate, activePlanType, nextDayType)
+      setEntriesState(remoteMealDayState.entries)
+      setCycleType(remoteMealDayState.cuttingCycleType)
+      setBulkingDayType(remoteMealDayState.bulkingDayType)
+      writeMealDayCache(createMealCacheKey(selectedDate, authUser?.id), remoteMealDayState)
+      setMealSource('api')
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+    }
   }
 
-  if (isCheckingAuth || !authUser) {
+  if (isCheckingAuth || (authUser && isCheckingProfile)) {
+    return (
+      <ConfigProvider locale={zhCN} theme={antdTheme}>
+        {messageContextHolder}
+        <PageLoading />
+      </ConfigProvider>
+    )
+  }
+
+  if (!authUser) {
     return (
       <ConfigProvider locale={zhCN} theme={antdTheme}>
         {messageContextHolder}
@@ -1247,7 +1385,7 @@ function App() {
           onToggleCollapse={toggleProfileCollapsed}
         />
 
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={null}>
           {activeRoute === 'foods' ? (
             <FoodLibraryPage
               foodSource={foodSource}

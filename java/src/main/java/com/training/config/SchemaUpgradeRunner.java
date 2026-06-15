@@ -31,6 +31,10 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         addColumnIfMissing("foods", "default_seed",
                 "ALTER TABLE foods ADD COLUMN default_seed BIT NOT NULL DEFAULT 0");
         addColumnIfMissing("foods", "remark", "ALTER TABLE foods ADD COLUMN remark VARCHAR(255) NOT NULL DEFAULT ''");
+        addColumnIfMissing("meal_logs", "cutting_cycle_type",
+                "ALTER TABLE meal_logs ADD COLUMN cutting_cycle_type VARCHAR(40) NOT NULL DEFAULT 'MEDIUM'");
+        addColumnIfMissing("meal_logs", "bulking_day_type",
+                "ALTER TABLE meal_logs ADD COLUMN bulking_day_type VARCHAR(40) NOT NULL DEFAULT 'TRAINING'");
         ensureDefaultSeedColumnDefault();
         dropIndexIfExists("meal_logs", "uk_meal_logs_date_type");
         dropIndexIfExists("cycle_macro_settings", "cycle_type");

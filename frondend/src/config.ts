@@ -1,14 +1,14 @@
 import { theme } from 'antd'
 import type { ThemeConfig } from 'antd'
-import type { FoodFormValues, MacroField, MealDraftFormState } from './types'
+import type { FoodFormDraftValues, MacroField, MealDraftFormState } from './types'
 
 /** 食材表单默认值。 */
-export const defaultFoodForm: FoodFormValues = {
+export const defaultFoodForm: FoodFormDraftValues = {
   name: '',
-  carbs: 0,
-  protein: 0,
-  fat: 0,
-  calories: 0,
+  carbs: null,
+  protein: null,
+  fat: null,
+  calories: null,
   remark: '',
 }
 
