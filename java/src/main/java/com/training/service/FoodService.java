@@ -46,8 +46,8 @@ public class FoodService {
     /** 新增食材。 */
     public FoodResponse createFood(FoodRequest request) {
         AppUser user = currentUserContext.get();
-        Food food = foodRepository.save(new Food(user, request.name(), request.protein(), request.carbs(),
-                request.fat(), request.calories(), request.remark()));
+        Food food = foodRepository.save(new Food(user, request.name(), request.unitName(), request.unitWeight(),
+                request.protein(), request.carbs(), request.fat(), request.calories(), request.remark()));
         return toResponse(food, true);
     }
 
@@ -60,8 +60,8 @@ public class FoodService {
             return toResponse(source, true);
         }
 
-        Food food = foodRepository.save(new Food(user, source.name, source.protein, source.carbs, source.fat,
-                source.calories, source.remark));
+        Food food = foodRepository.save(new Food(user, source.name, source.unitName, source.unitWeight,
+                source.protein, source.carbs, source.fat, source.calories, source.remark));
         return toResponse(food, true);
     }
 
@@ -69,6 +69,8 @@ public class FoodService {
     public FoodResponse updateFood(Long id, FoodRequest request) {
         Food food = getOwnedFood(id);
         food.name = request.name();
+        food.unitName = request.unitName();
+        food.unitWeight = request.unitWeight();
         food.protein = request.protein();
         food.carbs = request.carbs();
         food.fat = request.fat();
@@ -101,7 +103,7 @@ public class FoodService {
 
     /** 转换食材响应。 */
     private FoodResponse toResponse(Food food, boolean owned) {
-        return new FoodResponse(food.id, food.name, food.protein, food.carbs, food.fat, food.calories,
+        return new FoodResponse(food.id, food.name, food.unitName, food.unitWeight, food.protein, food.carbs, food.fat, food.calories,
                 food.remark == null ? "" : food.remark, owned);
     }
 }

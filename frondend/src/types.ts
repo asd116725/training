@@ -56,6 +56,8 @@ export interface RecommendationPromptFormValues {
 /** 食材编辑表单。 */
 export interface FoodFormValues {
   name: string
+  unitName: string
+  unitWeight: number
   carbs: number
   protein: number
   fat: number
@@ -64,7 +66,8 @@ export interface FoodFormValues {
 }
 
 /** 食材编辑草稿表单，允许新增时数字为空。 */
-export interface FoodFormDraftValues extends Omit<FoodFormValues, 'carbs' | 'protein' | 'fat' | 'calories'> {
+export interface FoodFormDraftValues extends Omit<FoodFormValues, 'carbs' | 'protein' | 'fat' | 'calories' | 'unitWeight'> {
+  unitWeight?: number | null
   carbs?: number | null
   protein?: number | null
   fat?: number | null
@@ -97,14 +100,14 @@ export type SkippedMeals = Partial<Record<MealType, boolean>>
 export interface MealFormState {
   meal: MealType
   foodId: string
-  grams: number
+  quantity: number
 }
 
 /** 餐食录入草稿，允许弹窗初始为空。 */
 export interface MealDraftFormState {
   meal?: MealType
   foodId?: string
-  grams?: number | null
+  quantity?: number | null
 }
 
 /** 营养素字段展示配置。 */

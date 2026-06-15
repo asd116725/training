@@ -17,6 +17,8 @@ import com.training.dto.ApiDtos.ProfileRequest;
 import com.training.dto.ApiDtos.ProfileSnapshot;
 import com.training.dto.ApiDtos.RecommendationRequest;
 import com.training.dto.ApiDtos.RecommendedItem;
+import com.training.model.AppUser;
+import com.training.model.Food;
 
 /** 营养计算服务测试。 */
 class NutritionServiceTest {
@@ -67,6 +69,19 @@ class NutritionServiceTest {
         assertEquals(45, remaining.fat());
     }
 
+    /** 验证按食材单位重量换算实际克重营养。 */
+    @Test
+    void shouldCalculateFoodNutritionByUnitWeight() {
+        Food milk = new Food(new AppUser("13800000000", "hash"), "牛奶", "瓶", 200, 7.2, 10, 8, 140);
+
+        NutritionTotals nutrition = nutritionService.calculateFoodNutrition(milk, 400);
+
+        assertEquals(280, nutrition.calories());
+        assertEquals(14.4, nutrition.protein());
+        assertEquals(20, nutrition.carbs());
+        assertEquals(16, nutrition.fat());
+    }
+
     /** 验证规则推荐生成。 */
     @Test
     void shouldCreateRuleRecommendation() {
@@ -78,9 +93,9 @@ class NutritionServiceTest {
                 new NutritionTotals(900, 70, 90, 20),
                 new NutritionTotals(1250, 86, 140, 38),
                 List.of(
-                        new FoodSnapshot("1", "鸡胸肉", 23, 0, 2, 110),
-                        new FoodSnapshot("2", "米饭", 2.6, 25.9, 0.3, 116),
-                        new FoodSnapshot("3", "橄榄油", 0, 0, 100, 884)),
+                        new FoodSnapshot("1", "鸡胸肉", "克", 1, 0.23, 0, 0.02, 1.1),
+                        new FoodSnapshot("2", "米饭", "克", 1, 0.026, 0.259, 0.003, 1.16),
+                        new FoodSnapshot("3", "橄榄油", "克", 1, 0, 0, 1, 8.84)),
                 List.of(new MealEntrySnapshot("a", "breakfast", "2", 200)),
                 Map.of(),
                 List.of());

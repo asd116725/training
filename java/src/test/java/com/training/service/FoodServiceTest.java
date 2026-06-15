@@ -56,7 +56,7 @@ class FoodServiceTest {
     /** 验证只查询当前用户食材。 */
     @Test
     void shouldListCurrentUserFoods() {
-        Food food = new Food(user, "牛奶", 3.6, 5, 4, 70);
+        Food food = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
         food.id = 1L;
         when(foodRepository.findByUserOrderByIdAsc(user)).thenReturn(List.of(food));
 
@@ -64,13 +64,15 @@ class FoodServiceTest {
 
         assertEquals(1, foods.size());
         assertEquals("牛奶", foods.get(0).name());
+        assertEquals("瓶", foods.get(0).unitName());
+        assertEquals(200, foods.get(0).unitWeight());
         assertTrue(foods.get(0).owned());
     }
 
     /** 验证公共库标记当前用户食材。 */
     @Test
     void shouldMarkOwnedFoodsInPublicList() {
-        Food ownedFood = new Food(user, "牛奶", 3.6, 5, 4, 70);
+        Food ownedFood = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
         ownedFood.id = 1L;
         Food publicFood = new Food("虾", 20, 0, 0.5, 85);
         publicFood.id = 2L;
@@ -87,10 +89,10 @@ class FoodServiceTest {
     void shouldHideDefaultSeedFoodsButKeepManualFoodsInPublicList() {
         AppUser otherUser = new AppUser("13900000000", "hash");
         otherUser.id = 20L;
-        Food defaultSeedFood = new Food(otherUser, "牛奶", 3.6, 5, 4, 70);
+        Food defaultSeedFood = new Food(otherUser, "牛奶", "克", 1, 0.036, 0.05, 0.04, 0.7);
         defaultSeedFood.id = 1L;
         defaultSeedFood.defaultSeed = true;
-        Food manualFood = new Food(otherUser, "牛奶", 4, 5, 4, 75);
+        Food manualFood = new Food(otherUser, "牛奶", "瓶", 200, 8, 10, 8, 150);
         manualFood.id = 2L;
         when(foodRepository.findAll()).thenReturn(List.of(defaultSeedFood, manualFood));
 
@@ -103,7 +105,7 @@ class FoodServiceTest {
     /** 验证导入公共食材时复制快照。 */
     @Test
     void shouldCopyPublicFoodWhenImporting() {
-        Food source = new Food("虾", 20, 0, 0.5, 85);
+        Food source = new Food("虾", "份", 120, 24, 0, 0.6, 102);
         source.id = 2L;
         source.remark = "去壳后称重";
         when(foodRepository.findById(2L)).thenReturn(Optional.of(source));
@@ -119,6 +121,8 @@ class FoodServiceTest {
         verify(foodRepository).save(captor.capture());
         assertSame(user, captor.getValue().user);
         assertEquals("虾", response.name());
+        assertEquals("份", response.unitName());
+        assertEquals(120, response.unitWeight());
         assertEquals("去壳后称重", response.remark());
         assertEquals(3L, response.id());
         assertTrue(response.owned());
@@ -127,7 +131,7 @@ class FoodServiceTest {
     /** 验证导入自己的食材时直接返回原食材。 */
     @Test
     void shouldReturnOwnedFoodWhenImportingSelf() {
-        Food source = new Food(user, "牛奶", 3.6, 5, 4, 70);
+        Food source = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
         source.id = 1L;
         when(foodRepository.findById(1L)).thenReturn(Optional.of(source));
 
@@ -142,26 +146,33 @@ class FoodServiceTest {
     void shouldCreateFoodForCurrentUser() {
         when(foodRepository.save(any(Food.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        foodService.createFood(new FoodRequest("牛肉", 23, 0, 3, 120, "一份约150g"));
+        foodService.createFood(new FoodRequest("牛肉", "份", 150, 34.5, 0, 4.5, 180, "一份约150g"));
 
         ArgumentCaptor<Food> captor = ArgumentCaptor.forClass(Food.class);
         verify(foodRepository).save(captor.capture());
         assertSame(user, captor.getValue().user);
         assertEquals("牛肉", captor.getValue().name);
+        assertEquals("份", captor.getValue().unitName);
+        assertEquals(150, captor.getValue().unitWeight);
         assertEquals("一份约150g", captor.getValue().remark);
     }
 
-    /** 验证修改食材同步保存备注。 */
+    /** 验证修改食材同步保存单位和备注。 */
     @Test
-    void shouldUpdateFoodRemark() {
-        Food food = new Food(user, "牛奶馒头", 9, 50, 4, 275);
+    void shouldUpdateFoodUnitAndRemark() {
+        Food food = new Food(user, "牛奶馒头", "克", 1, 0.09, 0.5, 0.04, 2.75);
         food.id = 1L;
         when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.of(food));
         when(foodRepository.save(any(Food.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        FoodResponse response = foodService.updateFood(1L, new FoodRequest("牛奶馒头", 9, 50, 4, 275, "一个牛奶馒头重30g"));
+        FoodResponse response = foodService.updateFood(1L,
+                new FoodRequest("牛奶馒头", "件", 30, 2.7, 15, 1.2, 82.5, "一个牛奶馒头重30g"));
 
+        assertEquals("件", food.unitName);
+        assertEquals(30, food.unitWeight);
         assertEquals("一个牛奶馒头重30g", food.remark);
+        assertEquals("件", response.unitName());
+        assertEquals(30, response.unitWeight());
         assertEquals("一个牛奶馒头重30g", response.remark());
     }
 
@@ -171,7 +182,7 @@ class FoodServiceTest {
         when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.empty());
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
-                () -> foodService.updateFood(1L, new FoodRequest("牛肉", 23, 0, 3, 120, "")));
+                () -> foodService.updateFood(1L, new FoodRequest("牛肉", "克", 1, 0.23, 0, 0.03, 1.2, "")));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
     }

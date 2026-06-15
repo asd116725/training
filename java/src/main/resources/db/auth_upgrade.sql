@@ -30,7 +30,65 @@ ALTER TABLE user_profiles ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE foods ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE foods ADD COLUMN default_seed BIT NOT NULL DEFAULT 0;
 ALTER TABLE foods MODIFY COLUMN default_seed BIT NOT NULL DEFAULT 0;
+SET @should_migrate_food_units = (
+  SELECT COUNT(*) = 0
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'foods'
+    AND column_name = 'unit_name'
+);
+SET @sql = IF(@should_migrate_food_units,
+  'ALTER TABLE foods ADD COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT ''克''',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @sql = IF((
+  SELECT COUNT(*) = 0
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'foods'
+    AND column_name = 'unit_weight'
+), 'ALTER TABLE foods ADD COLUMN unit_weight DOUBLE NOT NULL DEFAULT 1', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+UPDATE foods
+SET unit_name = '克',
+    unit_weight = 1,
+    protein = protein / 100,
+    carbs = carbs / 100,
+    fat = fat / 100,
+    calories = calories / 100
+WHERE @should_migrate_food_units = 1;
 ALTER TABLE meal_logs ADD COLUMN user_id BIGINT NULL;
+SET @should_migrate_meal_units = (
+  SELECT COUNT(*) = 0
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'meal_log_items'
+    AND column_name = 'quantity'
+);
+SET @sql = IF(@should_migrate_meal_units,
+  'ALTER TABLE meal_log_items ADD COLUMN quantity DOUBLE NOT NULL DEFAULT 0',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @sql = IF((
+  SELECT COUNT(*) = 0
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name = 'meal_log_items'
+    AND column_name = 'unit_name'
+), 'ALTER TABLE meal_log_items ADD COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT ''克''', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+UPDATE meal_log_items
+SET quantity = grams,
+    unit_name = '克'
+WHERE @should_migrate_meal_units = 1;
 ALTER TABLE cycle_macro_settings ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE recommendation_prompts ADD COLUMN user_id BIGINT NULL;
 ALTER TABLE recommendation_records ADD COLUMN user_id BIGINT NULL;
@@ -46,24 +104,28 @@ ALTER TABLE foods ADD CONSTRAINT fk_foods_user FOREIGN KEY (user_id) REFERENCES 
 
 CREATE TEMPORARY TABLE default_seed_foods (
   name VARCHAR(120) NOT NULL,
+  unit_name VARCHAR(20) NOT NULL,
+  unit_weight DOUBLE NOT NULL,
   protein DOUBLE NOT NULL,
   carbs DOUBLE NOT NULL,
   fat DOUBLE NOT NULL,
   calories DOUBLE NOT NULL
 );
 
-INSERT INTO default_seed_foods (name, protein, carbs, fat, calories) VALUES
-('牛奶', 3.6, 5, 4, 70),
-('虾', 20, 0, 0.5, 85),
-('燕麦吐司', 8.7, 35.2, 5.5, 244),
-('牛肉', 23, 0, 3, 120),
-('蛋白粉', 73.1, 12.9, 3.5, 380),
-('香蕉', 1.4, 22, 0.2, 93),
-('蓝莓', 0.5, 14.5, 0.3, 57);
+INSERT INTO default_seed_foods (name, unit_name, unit_weight, protein, carbs, fat, calories) VALUES
+('牛奶', '克', 1, 0.036, 0.05, 0.04, 0.7),
+('虾', '克', 1, 0.2, 0, 0.005, 0.85),
+('燕麦吐司', '克', 1, 0.087, 0.352, 0.055, 2.44),
+('牛肉', '克', 1, 0.23, 0, 0.03, 1.2),
+('蛋白粉', '克', 1, 0.731, 0.129, 0.035, 3.8),
+('香蕉', '克', 1, 0.014, 0.22, 0.002, 0.93),
+('蓝莓', '克', 1, 0.005, 0.145, 0.003, 0.57);
 
 UPDATE foods target
 JOIN default_seed_foods seed
   ON target.name = seed.name
+ AND target.unit_name = seed.unit_name
+ AND target.unit_weight = seed.unit_weight
  AND target.protein = seed.protein
  AND target.carbs = seed.carbs
  AND target.fat = seed.fat

@@ -70,6 +70,8 @@ public final class ApiDtos {
     /** 食材请求。 */
     public record FoodRequest(
             @NotBlank String name,
+            @NotBlank @Size(max = 20) String unitName,
+            @Positive double unitWeight,
             @PositiveOrZero double protein,
             @PositiveOrZero double carbs,
             @PositiveOrZero double fat,
@@ -77,6 +79,7 @@ public final class ApiDtos {
             @Size(max = 255) String remark) {
         /** 规范化备注。 */
         public FoodRequest {
+            unitName = unitName == null ? "克" : unitName.trim();
             remark = remark == null ? "" : remark.trim();
         }
     }
@@ -86,8 +89,8 @@ public final class ApiDtos {
     }
 
     /** 食材响应。 */
-    public record FoodResponse(Long id, String name, double protein, double carbs, double fat, double calories, String remark,
-            boolean owned) {
+    public record FoodResponse(Long id, String name, String unitName, double unitWeight, double protein, double carbs,
+            double fat, double calories, String remark, boolean owned) {
     }
 
     /** 推荐提示词请求。 */
@@ -109,7 +112,7 @@ public final class ApiDtos {
             @NotNull LocalDate date,
             @NotBlank String mealType,
             @NotNull Long foodId,
-            @Positive double grams,
+            @Positive double quantity,
             String cuttingCycleType,
             String bulkingDayType) {
     }
@@ -139,6 +142,8 @@ public final class ApiDtos {
             String mealType,
             Long foodId,
             String foodName,
+            double quantity,
+            String unitName,
             double grams,
             double calories,
             double protein,
@@ -199,7 +204,8 @@ public final class ApiDtos {
     }
 
     /** 推荐请求中的食材快照。 */
-    public record FoodSnapshot(String id, String name, double protein, double carbs, double fat, double calories) {
+    public record FoodSnapshot(String id, String name, String unitName, double unitWeight, double protein, double carbs,
+            double fat, double calories) {
     }
 
     /** 推荐请求中的餐食快照。 */

@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Column;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -28,6 +29,13 @@ public class MealLogItem {
     @JoinColumn(name = "food_id")
     public Food food;
 
+    /** 食用数量。 */
+    public double quantity;
+
+    /** 录入时的单位名称。 */
+    @Column(name = "unit_name", length = 20, nullable = false)
+    public String unitName = "克";
+
     /** 食用克数。 */
     public double grams;
 
@@ -36,9 +44,11 @@ public class MealLogItem {
     }
 
     /** 创建餐次食材明细。 */
-    public MealLogItem(MealLog mealLog, Food food, double grams) {
+    public MealLogItem(MealLog mealLog, Food food, double quantity) {
         this.mealLog = mealLog;
         this.food = food;
-        this.grams = grams;
+        this.quantity = quantity;
+        this.unitName = food.unitName;
+        this.grams = quantity * food.unitWeight;
     }
 }

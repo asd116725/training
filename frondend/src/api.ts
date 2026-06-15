@@ -56,6 +56,8 @@ export class ApiError extends Error {
 interface FoodResponse {
   id: number
   name: string
+  unitName?: string
+  unitWeight?: number
   protein: number
   carbs: number
   fat: number
@@ -96,6 +98,8 @@ interface MealEntryResponse {
   mealType: string
   foodId: number
   foodName: string
+  quantity?: number
+  unitName?: string
   grams: number
   calories: number
   protein: number
@@ -118,7 +122,7 @@ interface MealEntryRequest {
   date: string
   mealType: MealType
   foodId: number
-  grams: number
+  quantity: number
   cuttingCycleType: CycleType
   bulkingDayType: BulkingDayType
 }
@@ -241,6 +245,8 @@ function normalizeFood(food: FoodResponse): Food {
   return {
     id: String(food.id),
     name: food.name,
+    unitName: food.unitName ?? '克',
+    unitWeight: food.unitWeight ?? 1,
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
@@ -287,6 +293,8 @@ function normalizeMealEntry(entry: MealEntryResponse): MealEntry {
     id: String(entry.id),
     meal: mealTypeMap[entry.mealType] ?? 'breakfast',
     foodId: String(entry.foodId),
+    quantity: entry.quantity ?? entry.grams,
+    unitName: entry.unitName ?? '克',
     grams: entry.grams,
   }
 }
@@ -327,7 +335,7 @@ function createMealEntryRequest(
     date,
     mealType: mealForm.meal,
     foodId: Number(mealForm.foodId),
-    grams: mealForm.grams,
+    quantity: mealForm.quantity,
     cuttingCycleType,
     bulkingDayType,
   }

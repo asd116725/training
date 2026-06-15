@@ -55,6 +55,7 @@ import {
   calculateBulkingDailyPlan,
   calculateDailyPlan,
   calculateEntryTotals,
+  calculateFoodGrams,
   calculateRemaining,
   createId,
   cycleLabels,
@@ -65,6 +66,8 @@ import {
   mealLabels,
   defaultProfile,
   getTargetRecommendationMeals,
+  normalizeStoredEntries,
+  normalizeStoredFoods,
   normalizeBulkingMacroSettings,
   normalizeCycleMacroSettings,
   planLabels,
@@ -150,6 +153,8 @@ function getRouteFromPath(pathname: string): AppRoute {
 function normalizeFoodFormValues(values: FoodFormDraftValues): FoodFormValues {
   return {
     name: values.name,
+    unitName: values.unitName,
+    unitWeight: Number(values.unitWeight),
     carbs: Number(values.carbs),
     protein: Number(values.protein),
     fat: Number(values.fat),
@@ -227,7 +232,7 @@ function createMealDayState(
   cuttingCycleType: CycleType = 'medium',
   bulkingDayType: BulkingDayType = 'training',
 ): MealDayState {
-  return { entries, cuttingCycleType, bulkingDayType }
+  return { entries: normalizeStoredEntries(entries), cuttingCycleType, bulkingDayType }
 }
 
 /** 读取兼容旧格式的餐食缓存。 */
@@ -306,17 +311,34 @@ function findFoodByRecommendationName(foods: Food[], foodName: string) {
 }
 
 /** 将推荐项转换为指定餐次录入表单。 */
-function createRecommendedMealForm(item: RecommendedItem, foodId: string, meal: MealType): MealFormState {
+function createRecommendedMealForm(item: RecommendedItem, food: Food, meal: MealType): MealFormState {
   return {
     meal,
-    foodId,
-    grams: item.grams,
+    foodId: food.id,
+    quantity: roundMealQuantity(item.grams / food.unitWeight),
   }
 }
 
 /** 判断餐食草稿是否可提交。 */
 function isCompleteMealForm(mealForm: MealDraftFormState): mealForm is MealFormState {
-  return Boolean(mealForm.meal && mealForm.foodId && mealForm.grams && mealForm.grams > 0)
+  return Boolean(mealForm.meal && mealForm.foodId && mealForm.quantity && mealForm.quantity > 0)
+}
+
+/** 基于当前食材快照创建本地餐食记录。 */
+function createLocalMealEntry(mealForm: MealFormState, food: Food, id: string = createId()): MealEntry {
+  return {
+    id,
+    meal: mealForm.meal,
+    foodId: mealForm.foodId,
+    quantity: mealForm.quantity,
+    unitName: food.unitName,
+    grams: calculateFoodGrams(food, mealForm.quantity),
+  }
+}
+
+/** 保留适合餐食数量展示的精度。 */
+function roundMealQuantity(value: number) {
+  return Math.round(value * 100) / 100
 }
 
 /** 主应用组件。 */
@@ -335,7 +357,7 @@ function App() {
   const [isCheckingProfile, setIsCheckingProfile] = useState(false)
   const [isProfileInitialized, setIsProfileInitialized] = useState(false)
   const [profile, setProfile] = useStoredState<Profile>('training-profile', defaultProfile)
-  const [foods, setFoods] = useStoredState<Food[]>('training-foods', defaultFoods)
+  const [foods, setFoods] = useStoredState<Food[]>('training-foods', defaultFoods, normalizeStoredFoods)
   const [cycleMacroSettings, setCycleMacroSettingsState] = useState<CycleMacroSettings>(() =>
     normalizeCycleMacroSettings(readStoredState('training-cycle-macro-settings', defaultCycleMacroSettings)),
   )
@@ -845,6 +867,8 @@ function App() {
     setEditingFood(food)
     foodForm.setFieldsValue({
       name: food.name,
+      unitName: food.unitName,
+      unitWeight: food.unitWeight,
       carbs: food.carbs,
       protein: food.protein,
       fat: food.fat,
@@ -972,14 +996,21 @@ function App() {
   /** 添加餐食记录。 */
   const addMealEntry = async () => {
     if (!isCompleteMealForm(mealForm)) {
-      messageApi.warning('请选择餐次、食材并填写重量')
+      messageApi.warning('请选择餐次、食材并填写数量')
+      return
+    }
+
+    const selectedFood = foods.find((food) => food.id === mealForm.foodId)
+
+    if (!selectedFood) {
+      messageApi.warning('请选择有效食材')
       return
     }
 
     try {
       const nextEntry = mealSource !== 'local'
         ? await createMealEntry(selectedDate, mealForm, cycleType, bulkingDayType)
-        : { ...mealForm, id: createId() }
+        : createLocalMealEntry(mealForm, selectedFood)
       setEntries([...entries, nextEntry])
       clearSkippedMeal(mealForm.meal)
       setRecommendation(null)
@@ -990,7 +1021,7 @@ function App() {
       }
 
       setMealSource('local')
-      setEntries([...entries, { ...mealForm, id: createId() }])
+      setEntries([...entries, createLocalMealEntry(mealForm, selectedFood)])
       clearSkippedMeal(mealForm.meal)
       setRecommendation(null)
     }
@@ -1001,7 +1032,7 @@ function App() {
     setEditingMealEntry(entry)
     mealEntryForm.setFieldsValue({
       foodId: entry.foodId,
-      grams: entry.grams,
+      quantity: entry.quantity,
       meal: entry.meal,
     })
     setIsMealEntryModalOpen(true)
@@ -1021,11 +1052,18 @@ function App() {
     }
 
     setIsSavingMealEntry(true)
+    const selectedFood = foods.find((food) => food.id === values.foodId)
+
+    if (!selectedFood) {
+      messageApi.warning('请选择有效食材')
+      setIsSavingMealEntry(false)
+      return
+    }
 
     try {
       const nextEntry = mealSource !== 'local'
         ? await updateMealEntry(editingMealEntry.id, selectedDate, values, cycleType, bulkingDayType)
-        : { ...editingMealEntry, ...values }
+        : createLocalMealEntry(values, selectedFood, editingMealEntry.id)
       setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
       clearSkippedMeal(values.meal)
       setRecommendation(null)
@@ -1036,7 +1074,7 @@ function App() {
       }
 
       setMealSource('local')
-      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? { ...entry, ...values } : entry)))
+      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? createLocalMealEntry(values, selectedFood, entry.id) : entry)))
       clearSkippedMeal(values.meal)
       setRecommendation(null)
       closeMealEntryModal()
@@ -1192,7 +1230,7 @@ function App() {
     const items = recommendation?.items.filter((item) => item.meal === meal) ?? []
     const mealForms = items.flatMap((item) => {
       const food = findFoodByRecommendationName(foods, item.foodName)
-      return food ? [createRecommendedMealForm(item, food.id, meal)] : []
+      return food ? [createRecommendedMealForm(item, food, meal)] : []
     })
     const skippedCount = items.length - mealForms.length
     const mealLabel = mealLabels[meal]
@@ -1207,7 +1245,10 @@ function App() {
     try {
       const nextEntries = mealSource !== 'local'
         ? await createMealEntries(selectedDate, mealForms, cycleType, bulkingDayType)
-        : mealForms.map((form) => ({ ...form, id: createId() }))
+        : mealForms.flatMap((form) => {
+          const food = foods.find((item) => item.id === form.foodId)
+          return food ? [createLocalMealEntry(form, food)] : []
+        })
 
       setEntries([...entries, ...nextEntries])
       clearSkippedMeal(meal)

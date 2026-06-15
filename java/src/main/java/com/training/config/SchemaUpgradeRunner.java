@@ -27,15 +27,32 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
     /** 启动后修复旧版唯一索引。 */
     @Override
     public void run(ApplicationArguments args) {
+        boolean shouldMigrateLegacyFoodUnits = !columnExists("foods", "unit_name");
+        boolean shouldMigrateLegacyMealUnits = !columnExists("meal_log_items", "quantity");
         addColumnIfMissing("foods", "user_id", "ALTER TABLE foods ADD COLUMN user_id BIGINT NULL");
         addColumnIfMissing("foods", "default_seed",
                 "ALTER TABLE foods ADD COLUMN default_seed BIT NOT NULL DEFAULT 0");
         addColumnIfMissing("foods", "remark", "ALTER TABLE foods ADD COLUMN remark VARCHAR(255) NOT NULL DEFAULT ''");
+        addColumnIfMissing("foods", "unit_name",
+                "ALTER TABLE foods ADD COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT '克'");
+        addColumnIfMissing("foods", "unit_weight",
+                "ALTER TABLE foods ADD COLUMN unit_weight DOUBLE NOT NULL DEFAULT 1");
+        addColumnIfMissing("meal_log_items", "quantity",
+                "ALTER TABLE meal_log_items ADD COLUMN quantity DOUBLE NOT NULL DEFAULT 0");
+        addColumnIfMissing("meal_log_items", "unit_name",
+                "ALTER TABLE meal_log_items ADD COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT '克'");
         addColumnIfMissing("meal_logs", "cutting_cycle_type",
                 "ALTER TABLE meal_logs ADD COLUMN cutting_cycle_type VARCHAR(40) NOT NULL DEFAULT 'MEDIUM'");
         addColumnIfMissing("meal_logs", "bulking_day_type",
                 "ALTER TABLE meal_logs ADD COLUMN bulking_day_type VARCHAR(40) NOT NULL DEFAULT 'TRAINING'");
         ensureDefaultSeedColumnDefault();
+        ensureUnitColumnDefaults();
+        if (shouldMigrateLegacyFoodUnits) {
+            migrateLegacyFoodUnits();
+        }
+        if (shouldMigrateLegacyMealUnits) {
+            migrateLegacyMealUnits();
+        }
         dropIndexIfExists("meal_logs", "uk_meal_logs_date_type");
         dropIndexIfExists("cycle_macro_settings", "cycle_type");
         dropUniqueIndexByColumns("meal_logs", "log_date,meal_type");
@@ -53,6 +70,28 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         markExistingDefaultSeedFoods();
     }
 
+    /** 首次新增单位字段时将旧每百克营养换算为每克营养。 */
+    private void migrateLegacyFoodUnits() {
+        jdbcTemplate.update("""
+                UPDATE foods
+                SET unit_name = '克',
+                    unit_weight = 1,
+                    protein = protein / 100,
+                    carbs = carbs / 100,
+                    fat = fat / 100,
+                    calories = calories / 100
+                """);
+    }
+
+    /** 首次新增数量字段时保留历史克重为录入数量。 */
+    private void migrateLegacyMealUnits() {
+        jdbcTemplate.update("""
+                UPDATE meal_log_items
+                SET quantity = grams,
+                    unit_name = '克'
+                """);
+    }
+
     /** 标记历史默认补种食材。 */
     private void markExistingDefaultSeedFoods() {
         for (DefaultFood food : DefaultFoodCatalog.all()) {
@@ -67,11 +106,14 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                       AND target.default_seed = 0
                       AND marked.id IS NULL
                       AND target.name = ?
+                      AND target.unit_name = ?
+                      AND target.unit_weight = ?
                       AND target.protein = ?
                       AND target.carbs = ?
                       AND target.fat = ?
                       AND target.calories = ?
-                    """, food.name(), food.protein(), food.carbs(), food.fat(), food.calories());
+                    """, food.name(), food.unitName(), food.unitWeight(), food.protein(), food.carbs(),
+                    food.fat(), food.calories());
         }
     }
 
@@ -85,15 +127,18 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                        food.carbs AS carbs,
                        food.fat AS fat,
                        food.calories AS calories,
+                       food.unit_name AS unit_name,
+                       food.unit_weight AS unit_weight,
                        food.remark AS remark
                 FROM meal_log_items item
                 JOIN meal_logs log ON item.meal_log_id = log.id
                 JOIN foods food ON item.food_id = food.id
                 WHERE log.user_id IS NOT NULL
                   AND food.user_id IS NULL
-                """, (rs, rowNum) -> new LegacyMealFood(rs.getLong("item_id"), rs.getLong("user_id"),
+        """, (rs, rowNum) -> new LegacyMealFood(rs.getLong("item_id"), rs.getLong("user_id"),
                 rs.getString("name"), rs.getDouble("protein"), rs.getDouble("carbs"),
-                rs.getDouble("fat"), rs.getDouble("calories"), rs.getString("remark")));
+                rs.getDouble("fat"), rs.getDouble("calories"), rs.getString("unit_name"),
+                rs.getDouble("unit_weight"), rs.getString("remark")));
 
         for (LegacyMealFood item : items) {
             Long foodId = findOrCreateUserFood(item);
@@ -112,21 +157,23 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                   AND carbs = ?
                   AND fat = ?
                   AND calories = ?
+                  AND unit_name = ?
+                  AND unit_weight = ?
                   AND remark = ?
                 ORDER BY id ASC
                 LIMIT 1
                 """, Long.class, item.userId(), item.name(), item.protein(), item.carbs(), item.fat(),
-                item.calories(), item.remark());
+                item.calories(), item.unitName(), item.unitWeight(), item.remark());
 
         if (!foodIds.isEmpty()) {
             return foodIds.get(0);
         }
 
         jdbcTemplate.update("""
-                INSERT INTO foods (user_id, name, protein, carbs, fat, calories, remark, default_seed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                INSERT INTO foods (user_id, name, protein, carbs, fat, calories, unit_name, unit_weight, remark, default_seed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
                 """, item.userId(), item.name(), item.protein(), item.carbs(), item.fat(), item.calories(),
-                item.remark());
+                item.unitName(), item.unitWeight(), item.remark());
         return jdbcTemplate.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
     }
 
@@ -134,6 +181,17 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
     private void ensureDefaultSeedColumnDefault() {
         try {
             jdbcTemplate.execute("ALTER TABLE foods MODIFY COLUMN default_seed BIT NOT NULL DEFAULT 0");
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** 确保单位字段有默认值。 */
+    private void ensureUnitColumnDefaults() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE foods MODIFY COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT '克'");
+            jdbcTemplate.execute("ALTER TABLE foods MODIFY COLUMN unit_weight DOUBLE NOT NULL DEFAULT 1");
+            jdbcTemplate.execute("ALTER TABLE meal_log_items MODIFY COLUMN quantity DOUBLE NOT NULL DEFAULT 0");
+            jdbcTemplate.execute("ALTER TABLE meal_log_items MODIFY COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT '克'");
         } catch (Exception ignored) {
         }
     }
@@ -240,6 +298,6 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
 
     /** 旧公共食材餐食引用。 */
     private record LegacyMealFood(Long itemId, Long userId, String name, double protein, double carbs, double fat,
-            double calories, String remark) {
+            double calories, String unitName, double unitWeight, String remark) {
     }
 }

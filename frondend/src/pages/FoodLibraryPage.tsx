@@ -26,23 +26,31 @@ const foodFilterOptions: Array<{ label: string; value: FoodFilter }> = [
   { label: '高脂肪', value: 'fat' },
 ]
 
+/** 食材营养字段键。 */
+type FoodMacroKey = 'protein' | 'carbs' | 'fat' | 'calories'
+
 /** 食材名称是否匹配搜索关键词。 */
 function matchFoodName(food: Food, keyword: string) {
   return food.name.toLowerCase().includes(keyword.trim().toLowerCase())
 }
 
+/** 获取食材每百克营养密度。 */
+function getFoodMacroPer100g(food: Food, key: FoodMacroKey) {
+  return (food[key] / food.unitWeight) * 100
+}
+
 /** 食材是否匹配宏量筛选。 */
 function matchFoodFilter(food: Food, filter: FoodFilter) {
   if (filter === 'protein') {
-    return food.protein >= 15
+    return getFoodMacroPer100g(food, 'protein') >= 15
   }
 
   if (filter === 'carbs') {
-    return food.carbs >= 30
+    return getFoodMacroPer100g(food, 'carbs') >= 30
   }
 
   if (filter === 'fat') {
-    return food.fat >= 10
+    return getFoodMacroPer100g(food, 'fat') >= 10
   }
 
   return true
@@ -51,10 +59,25 @@ function matchFoodFilter(food: Food, filter: FoodFilter) {
 /** 获取食材标签。 */
 function getFoodTags(food: Food) {
   return [
-    food.protein >= 15 ? '高蛋白' : '',
-    food.carbs >= 30 ? '高碳水' : '',
-    food.fat >= 10 ? '高脂肪' : '',
+    getFoodMacroPer100g(food, 'protein') >= 15 ? '高蛋白' : '',
+    getFoodMacroPer100g(food, 'carbs') >= 30 ? '高碳水' : '',
+    getFoodMacroPer100g(food, 'fat') >= 10 ? '高脂肪' : '',
   ].filter(Boolean)
+}
+
+/** 格式化食材单位数字。 */
+function formatFoodNumber(value: number, digits = 3) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(digits).replace(/\.?0+$/, '')
+}
+
+/** 格式化每单位营养展示。 */
+function formatFoodMacro(value: number, food: Food, unit: string) {
+  return `${formatFoodNumber(value)} ${unit} / ${food.unitName}`
+}
+
+/** 格式化食材单位换算。 */
+function formatFoodUnit(food: Food) {
+  return `${food.unitName} · ${formatFoodNumber(food.unitWeight)}g`
 }
 
 /** 获取食材备注展示文案。 */
@@ -132,28 +155,34 @@ export function FoodLibraryPage({
         render: (name: Food['name']) => <strong className="food-name-cell">{name}</strong>,
       },
       {
-        dataIndex: 'protein',
-        title: '蛋白质(g)',
+        key: 'unit',
+        title: '单位',
         width: 130,
-        render: (value: Food['protein']) => `${value} g`,
+        render: (_: unknown, food) => <span className="food-unit-cell">{formatFoodUnit(food)}</span>,
+      },
+      {
+        dataIndex: 'protein',
+        title: '蛋白质',
+        width: 150,
+        render: (value: Food['protein'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'carbs',
-        title: '碳水(g)',
-        width: 120,
-        render: (value: Food['carbs']) => `${value} g`,
+        title: '碳水',
+        width: 140,
+        render: (value: Food['carbs'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'fat',
-        title: '脂肪(g)',
-        width: 120,
-        render: (value: Food['fat']) => `${value} g`,
+        title: '脂肪',
+        width: 140,
+        render: (value: Food['fat'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'calories',
-        title: '热量(kcal)',
-        width: 130,
-        render: (value: Food['calories']) => `${value} kcal`,
+        title: '热量',
+        width: 150,
+        render: (value: Food['calories'], food) => formatFoodMacro(value, food, 'kcal'),
       },
       {
         key: 'tags',
@@ -216,24 +245,29 @@ export function FoodLibraryPage({
         render: (name: Food['name']) => <strong className="food-name-cell">{name}</strong>,
       },
       {
+        key: 'unit',
+        title: '单位',
+        render: (_: unknown, food) => <span className="food-unit-cell">{formatFoodUnit(food)}</span>,
+      },
+      {
         dataIndex: 'protein',
-        title: '蛋白质(g)',
-        render: (value: Food['protein']) => `${value} g`,
+        title: '蛋白质',
+        render: (value: Food['protein'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'carbs',
-        title: '碳水(g)',
-        render: (value: Food['carbs']) => `${value} g`,
+        title: '碳水',
+        render: (value: Food['carbs'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'fat',
-        title: '脂肪(g)',
-        render: (value: Food['fat']) => `${value} g`,
+        title: '脂肪',
+        render: (value: Food['fat'], food) => formatFoodMacro(value, food, 'g'),
       },
       {
         dataIndex: 'calories',
-        title: '热量(kcal)',
-        render: (value: Food['calories']) => `${value} kcal`,
+        title: '热量',
+        render: (value: Food['calories'], food) => formatFoodMacro(value, food, 'kcal'),
       },
       {
         align: 'right',
@@ -261,12 +295,12 @@ export function FoodLibraryPage({
     <section className="food-library-page">
       <div className="food-library-hero">
         <div>
-          <p className="app-label">食材数据 · 每 100g</p>
+          <p className="app-label">食材数据 · 每单位</p>
           <h2>
             <Database size={28} />
             食材库
           </h2>
-          <p className="muted-text">维护每 100g 食材的碳蛋脂与热量，所有推荐和五餐记录都会使用这里的数据。</p>
+          <p className="muted-text">维护每单位食材的碳蛋脂、热量与换算克重，所有推荐和五餐记录都会使用这里的数据。</p>
         </div>
         <div className="food-library-actions">
           <Button className="ghost-action" icon={<FileDown size={16} />} onClick={openPublicFoodModal}>
@@ -281,7 +315,7 @@ export function FoodLibraryPage({
       <div className="food-library-stats">
         <FoodStat label="食材总数" value={`${foods.length}`} />
         <FoodStat label="当前结果" value={`${filteredFoods.length}`} />
-        <FoodStat label="平均热量" value={`${getAverageCalories(foods)} kcal`} />
+        <FoodStat label="平均单位热量" value={`${getAverageCalories(foods)} kcal`} />
         <FoodStat label="数据来源" value={foodSourceLabels[foodSource]} />
       </div>
 
@@ -320,7 +354,7 @@ export function FoodLibraryPage({
             onChange: setFoodPage,
           }}
           rowKey="id"
-          scroll={{ x: 1112 }}
+          scroll={{ x: 1280 }}
         />
       </div>
       <Modal
@@ -328,7 +362,7 @@ export function FoodLibraryPage({
         footer={null}
         open={isPublicModalOpen}
         title="公共食材库"
-        width={860}
+        width={920}
         onCancel={() => setIsPublicModalOpen(false)}
       >
         <div className="public-food-toolbar">
@@ -349,7 +383,7 @@ export function FoodLibraryPage({
           loading={loadingPublicFoods}
           pagination={{ pageSize: 8, showSizeChanger: false, showTotal: (total) => `共 ${total} 条` }}
           rowKey={(food) => `${food.id}-${food.owned ? 'mine' : 'public'}`}
-          scroll={{ x: 760 }}
+          scroll={{ x: 900 }}
         />
       </Modal>
     </section>

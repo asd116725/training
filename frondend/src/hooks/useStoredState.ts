@@ -7,8 +7,8 @@ export function readStoredState<T>(key: string, fallback: T): T {
 }
 
 /** 创建带本地存储的状态。 */
-export function useStoredState<T>(key: string, fallback: T) {
-  const [value, setValue] = useState<T>(() => readStoredState(key, fallback))
+export function useStoredState<T>(key: string, fallback: T, normalize: (value: T) => T = (value) => value) {
+  const [value, setValue] = useState<T>(() => normalize(readStoredState(key, fallback)))
 
   /** 更新状态并同步本地存储。 */
   const updateValue = useCallback((nextValue: SetStateAction<T>) => {

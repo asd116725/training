@@ -3,6 +3,7 @@ import { Button, InputNumber, Modal, Select, Space } from 'antd'
 import { Check, Pencil, Plus, RefreshCcw, Trash2, Utensils, X } from 'lucide-react'
 import {
   calculateEntryTotals,
+  calculateFoodGrams,
   calculateFoodNutrition,
   mealLabels,
   roundOne,
@@ -85,8 +86,9 @@ export function MealPanel({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const selectedFood = useMemo(() => foods.find((food) => food.id === mealForm.foodId), [foods, mealForm.foodId])
   const selectedFoodRemark = selectedFood?.remark?.trim() ?? ''
-  const previewNutrition = selectedFood && mealForm.grams ? calculateFoodNutrition(selectedFood, mealForm.grams) : null
-  const canSubmitMealForm = Boolean(mealForm.meal && mealForm.foodId && mealForm.grams)
+  const previewGrams = selectedFood && mealForm.quantity ? calculateFoodGrams(selectedFood, mealForm.quantity) : 0
+  const previewNutrition = selectedFood && mealForm.quantity ? calculateFoodNutrition(selectedFood, previewGrams) : null
+  const canSubmitMealForm = Boolean(mealForm.meal && mealForm.foodId && mealForm.quantity)
 
   /** 打开添加记录弹窗。 */
   const openAddModal = () => {
@@ -128,8 +130,9 @@ export function MealPanel({
         mealForm={mealForm}
         open={isAddModalOpen}
         canSubmit={canSubmitMealForm}
+        previewGrams={previewGrams}
         previewNutrition={previewNutrition}
-        selectedFoodName={selectedFood?.name ?? '未选择食材'}
+        selectedFood={selectedFood}
         selectedFoodRemark={selectedFoodRemark}
         onCancel={closeAddModal}
         onMealFormChange={onMealFormChange}
@@ -160,8 +163,9 @@ function MealAddModal({
   foods,
   mealForm,
   open,
+  previewGrams,
   previewNutrition,
-  selectedFoodName,
+  selectedFood,
   selectedFoodRemark,
   onCancel,
   onMealFormChange,
@@ -171,13 +175,21 @@ function MealAddModal({
   foods: Food[]
   mealForm: MealDraftFormState
   open: boolean
+  previewGrams: number
   previewNutrition: ReturnType<typeof calculateFoodNutrition> | null
-  selectedFoodName: string
+  selectedFood?: Food
   selectedFoodRemark: string
   onCancel: () => void
   onMealFormChange: (mealForm: MealDraftFormState) => void
   onSubmit: () => void | Promise<void>
 }) {
+  /** 当前选择食材的单位名称。 */
+  const foodUnitName = selectedFood?.unitName ?? '单位'
+  /** 当前数量输入精度。 */
+  const quantityPrecision = foodUnitName === '克' ? 0 : 2
+  /** 当前数量输入步长。 */
+  const quantityStep = foodUnitName === '克' ? 10 : 1
+
   return (
     <Modal
       centered
@@ -185,7 +197,7 @@ function MealAddModal({
       closeIcon={<X size={17} />}
       footer={
         <div className="meal-add-footer">
-          <span>数据来自食材库，每 100g 自动换算。</span>
+          <span>数据来自食材库，按食材单位自动换算。</span>
           <div className="meal-add-actions">
             <Button className="meal-add-cancel" onClick={onCancel}>
               取消
@@ -204,7 +216,7 @@ function MealAddModal({
           </span>
           <span>
             <strong>添加餐食记录</strong>
-            <small>选择餐次、食材与重量，保存后进入当天五餐记录。</small>
+            <small>选择餐次、食材与数量，保存后进入当天五餐记录。</small>
           </span>
         </div>
       }
@@ -237,17 +249,17 @@ function MealAddModal({
           />
         </div>
         <div className="meal-add-field">
-          <MealAddFieldLabel hint="按克重换算" title="重量" />
+          <MealAddFieldLabel hint="按食材单位录入" title="数量" />
           <Space.Compact className="modal-number-control meal-add-amount-control">
             <InputNumber
               min={1}
-              precision={0}
-              placeholder="请输入克重"
-              step={10}
-              value={mealForm.grams ?? null}
-              onChange={(grams) => onMealFormChange({ ...mealForm, grams: grams ?? undefined })}
+              precision={quantityPrecision}
+              placeholder="请输入数量"
+              step={quantityStep}
+              value={mealForm.quantity ?? null}
+              onChange={(quantity) => onMealFormChange({ ...mealForm, quantity: quantity ?? undefined })}
             />
-            <span className="modal-unit-addon">g</span>
+            <span className="modal-unit-addon">{foodUnitName}</span>
           </Space.Compact>
         </div>
         <FoodRemarkStrip remark={selectedFoodRemark} />
@@ -255,7 +267,11 @@ function MealAddModal({
           <div className="meal-add-preview">
             <span>预计摄入</span>
             <strong>{Math.round(previewNutrition.calories)} kcal</strong>
-            <small>{selectedFoodName}</small>
+            <small>{selectedFood?.name ?? '未选择食材'}</small>
+            <p className="meal-add-unit-preview">
+              {mealForm.quantity}
+              {foodUnitName} = {previewGrams}g
+            </p>
             <p>
               碳 {roundOne(previewNutrition.carbs)}g · 蛋 {roundOne(previewNutrition.protein)}g · 脂{' '}
               {roundOne(previewNutrition.fat)}g
@@ -265,7 +281,7 @@ function MealAddModal({
           <div className="meal-add-preview is-empty">
             <span>预计摄入</span>
             <strong>待计算</strong>
-            <small>选择食材并填写重量后显示碳蛋脂</small>
+            <small>选择食材并填写数量后显示碳蛋脂</small>
           </div>
         )}
       </div>
@@ -283,6 +299,13 @@ function MealAddFieldLabel({ hint, title }: { hint: string; title: string }) {
       <small>{hint}</small>
     </span>
   )
+}
+
+/** 格式化餐食记录数量展示。 */
+function formatMealEntryAmount(entry: MealEntry) {
+  const quantityText = `${entry.quantity}${entry.unitName}`
+
+  return entry.unitName === '克' ? quantityText : `${quantityText} · ${entry.grams}g`
 }
 
 /** 餐次列组件。 */
@@ -336,7 +359,7 @@ function MealColumn({
                     </div>
                   </div>
                   <span>
-                    {entry.grams}g · {nutrition?.calories ?? 0}kcal
+                    {formatMealEntryAmount(entry)} · {nutrition?.calories ?? 0}kcal
                   </span>
                   {nutrition && (
                     <small>

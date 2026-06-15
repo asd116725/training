@@ -62,7 +62,7 @@ class MealLogServiceTest {
     void setUp() {
         user = new AppUser("13800000000", "hash");
         user.id = 10L;
-        food = new Food(user, "米饭", 2.6, 25.9, 0.3, 116);
+        food = new Food(user, "米饭", "克", 1, 0.026, 0.259, 0.003, 1.16);
         food.id = 1L;
         currentUserContext.set(user);
         mealLogService = new MealLogService(mealLogRepository, mealLogItemRepository, foodService,
@@ -89,6 +89,39 @@ class MealLogServiceTest {
         verify(mealLogItemRepository).save(captor.capture());
         assertEquals(CycleType.LOW, captor.getValue().mealLog.cuttingCycleType);
         assertEquals(CycleType.REST, captor.getValue().mealLog.bulkingDayType);
+        assertEquals(120, captor.getValue().quantity);
+        assertEquals("克", captor.getValue().unitName);
+        assertEquals(120, captor.getValue().grams);
+    }
+
+    /** 验证非克单位按数量保存克重快照并计算营养。 */
+    @Test
+    void shouldSaveQuantityAndGramSnapshotForUnitFood() {
+        LocalDate date = LocalDate.of(2026, 6, 15);
+        Food milk = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
+        milk.id = 2L;
+        when(mealLogRepository.findFirstByUserAndLogDateAndMealTypeOrderByIdAsc(user, date, MealType.BREAKFAST))
+                .thenReturn(Optional.empty());
+        when(mealLogRepository.save(any(MealLog.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(foodService.getOwnedFood(2L)).thenReturn(milk);
+        when(mealLogItemRepository.save(any(MealLogItem.class))).thenAnswer(invocation -> {
+            MealLogItem item = invocation.getArgument(0);
+            item.id = 21L;
+            return item;
+        });
+
+        var response = mealLogService.addEntry(new MealEntryRequest(date, "breakfast", 2L, 2, "medium", "training"));
+
+        ArgumentCaptor<MealLogItem> captor = ArgumentCaptor.forClass(MealLogItem.class);
+        verify(mealLogItemRepository).save(captor.capture());
+        assertEquals(2, captor.getValue().quantity);
+        assertEquals("瓶", captor.getValue().unitName);
+        assertEquals(400, captor.getValue().grams);
+        assertEquals(2, response.quantity());
+        assertEquals("瓶", response.unitName());
+        assertEquals(400, response.grams());
+        assertEquals(280, response.calories());
+        assertEquals(14.4, response.protein());
     }
 
     /** 验证查询某天餐食会返回绑定日型。 */

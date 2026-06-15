@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS foods (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id BIGINT,
   name VARCHAR(120) NOT NULL,
+  unit_name VARCHAR(20) NOT NULL DEFAULT '克',
+  unit_weight DOUBLE NOT NULL DEFAULT 1,
   protein DOUBLE NOT NULL DEFAULT 0,
   carbs DOUBLE NOT NULL DEFAULT 0,
   fat DOUBLE NOT NULL DEFAULT 0,
@@ -83,6 +85,8 @@ CREATE TABLE IF NOT EXISTS meal_log_items (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   meal_log_id BIGINT NOT NULL,
   food_id BIGINT NOT NULL,
+  quantity DOUBLE NOT NULL,
+  unit_name VARCHAR(20) NOT NULL DEFAULT '克',
   grams DOUBLE NOT NULL,
   CONSTRAINT fk_meal_log_items_log FOREIGN KEY (meal_log_id) REFERENCES meal_logs (id),
   CONSTRAINT fk_meal_log_items_food FOREIGN KEY (food_id) REFERENCES foods (id)
@@ -109,36 +113,36 @@ CREATE TABLE IF NOT EXISTS recommendation_prompts (
   CONSTRAINT fk_recommendation_prompts_user FOREIGN KEY (user_id) REFERENCES app_users (id)
 );
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '鸡胸肉', 23, 0, 2, 110
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '鸡胸肉', '克', 1, 0.23, 0, 0.02, 1.1
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '鸡胸肉' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '鸡蛋', 13, 1, 10, 155
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '鸡蛋', '克', 1, 0.13, 0.01, 0.1, 1.55
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '鸡蛋' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '米饭', 2.6, 25.9, 0.3, 116
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '米饭', '克', 1, 0.026, 0.259, 0.003, 1.16
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '米饭' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '燕麦', 16.9, 66.3, 6.9, 389
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '燕麦', '克', 1, 0.169, 0.663, 0.069, 3.89
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '燕麦' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '红薯', 1.6, 20.1, 0.1, 86
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '红薯', '克', 1, 0.016, 0.201, 0.001, 0.86
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '红薯' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '三文鱼', 20, 0, 13, 208
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '三文鱼', '克', 1, 0.2, 0, 0.13, 2.08
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '三文鱼' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '西兰花', 2.8, 6.6, 0.4, 34
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '西兰花', '克', 1, 0.028, 0.066, 0.004, 0.34
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '西兰花' AND user_id IS NULL);
 
-INSERT INTO foods (name, protein, carbs, fat, calories)
-SELECT '橄榄油', 0, 0, 100, 884
+INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
+SELECT '橄榄油', '克', 1, 0, 0, 1, 8.84
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '橄榄油' AND user_id IS NULL);
 
 INSERT INTO cycle_macro_settings (cycle_type, carbs_per_kg, protein_per_kg, fat_per_kg)

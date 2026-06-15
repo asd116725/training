@@ -5,6 +5,8 @@ import type { FoodFormDraftValues, MacroField, MealDraftFormState } from './type
 /** 食材表单默认值。 */
 export const defaultFoodForm: FoodFormDraftValues = {
   name: '',
+  unitName: '克',
+  unitWeight: 1,
   carbs: null,
   protein: null,
   fat: null,

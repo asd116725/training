@@ -31,6 +31,8 @@ export interface Profile {
 export interface Food {
   id: string
   name: string
+  unitName: string
+  unitWeight: number
   protein: number
   carbs: number
   fat: number
@@ -44,6 +46,8 @@ export interface MealEntry {
   id: string
   meal: MealType
   foodId: string
+  quantity: number
+  unitName: string
   grams: number
 }
 
@@ -86,6 +90,15 @@ export interface RecommendedItem {
   carbs: number
   fat: number
 }
+
+/** 默认食材单位名称。 */
+export const defaultFoodUnitName = '克'
+
+/** 默认食材单位重量。 */
+export const defaultFoodUnitWeight = 1
+
+/** 食材单位选项。 */
+export const foodUnitNames = ['克', '个', '件', '份', '瓶', '盒'] as const
 
 /** 餐次中文名称。 */
 export const mealLabels: Record<MealType, string> = {
@@ -166,22 +179,22 @@ export const defaultProfile: Profile = {
 
 /** 默认食材库。 */
 export const defaultFoods: Food[] = [
-  { id: 'chicken-breast', name: '鸡胸肉', protein: 23, carbs: 0, fat: 2, calories: 110 },
-  { id: 'egg', name: '鸡蛋', protein: 13, carbs: 1, fat: 10, calories: 155 },
-  { id: 'rice', name: '米饭', protein: 2.6, carbs: 25.9, fat: 0.3, calories: 116 },
-  { id: 'oat', name: '燕麦', protein: 16.9, carbs: 66.3, fat: 6.9, calories: 389 },
-  { id: 'sweet-potato', name: '红薯', protein: 1.6, carbs: 20.1, fat: 0.1, calories: 86 },
-  { id: 'salmon', name: '三文鱼', protein: 20, carbs: 0, fat: 13, calories: 208 },
-  { id: 'broccoli', name: '西兰花', protein: 2.8, carbs: 6.6, fat: 0.4, calories: 34 },
-  { id: 'olive-oil', name: '橄榄油', protein: 0, carbs: 0, fat: 100, calories: 884 },
+  { id: 'chicken-breast', name: '鸡胸肉', unitName: '克', unitWeight: 1, protein: 0.23, carbs: 0, fat: 0.02, calories: 1.1 },
+  { id: 'egg', name: '鸡蛋', unitName: '克', unitWeight: 1, protein: 0.13, carbs: 0.01, fat: 0.1, calories: 1.55 },
+  { id: 'rice', name: '米饭', unitName: '克', unitWeight: 1, protein: 0.026, carbs: 0.259, fat: 0.003, calories: 1.16 },
+  { id: 'oat', name: '燕麦', unitName: '克', unitWeight: 1, protein: 0.169, carbs: 0.663, fat: 0.069, calories: 3.89 },
+  { id: 'sweet-potato', name: '红薯', unitName: '克', unitWeight: 1, protein: 0.016, carbs: 0.201, fat: 0.001, calories: 0.86 },
+  { id: 'salmon', name: '三文鱼', unitName: '克', unitWeight: 1, protein: 0.2, carbs: 0, fat: 0.13, calories: 2.08 },
+  { id: 'broccoli', name: '西兰花', unitName: '克', unitWeight: 1, protein: 0.028, carbs: 0.066, fat: 0.004, calories: 0.34 },
+  { id: 'olive-oil', name: '橄榄油', unitName: '克', unitWeight: 1, protein: 0, carbs: 0, fat: 1, calories: 8.84 },
 ]
 
 /** 默认餐食记录。 */
 export const defaultEntries: MealEntry[] = [
-  { id: 'entry-1', meal: 'breakfast', foodId: 'oat', grams: 50 },
-  { id: 'entry-2', meal: 'breakfast', foodId: 'egg', grams: 100 },
-  { id: 'entry-3', meal: 'lunch', foodId: 'chicken-breast', grams: 180 },
-  { id: 'entry-4', meal: 'lunch', foodId: 'rice', grams: 220 },
+  { id: 'entry-1', meal: 'breakfast', foodId: 'oat', quantity: 50, unitName: '克', grams: 50 },
+  { id: 'entry-2', meal: 'breakfast', foodId: 'egg', quantity: 100, unitName: '克', grams: 100 },
+  { id: 'entry-3', meal: 'lunch', foodId: 'chicken-breast', quantity: 180, unitName: '克', grams: 180 },
+  { id: 'entry-4', meal: 'lunch', foodId: 'rice', quantity: 220, unitName: '克', grams: 220 },
 ]
 
 /** 生成简单唯一标识。 */
@@ -190,9 +203,14 @@ export const createId = () => crypto.randomUUID()
 /** 保留一位小数。 */
 export const roundOne = (value: number) => Math.round(value * 10) / 10
 
+/** 按数量计算食材克重。 */
+export function calculateFoodGrams(food: Food, quantity: number) {
+  return roundOne(quantity * food.unitWeight)
+}
+
 /** 按克数计算单个食材营养。 */
 export function calculateFoodNutrition(food: Food, grams: number): NutritionTotals {
-  const ratio = grams / 100
+  const ratio = grams / food.unitWeight
 
   return {
     calories: roundOne(food.calories * ratio),
@@ -213,6 +231,40 @@ export function sumNutrition(items: NutritionTotals[]): NutritionTotals {
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
+}
+
+/** 标准化本地缓存食材。 */
+export function normalizeStoredFoods(foods: Food[]): Food[] {
+  return foods.map((food) => {
+    const legacyFood = food as Food & { unitName?: string; unitWeight?: number }
+
+    if (legacyFood.unitName && legacyFood.unitWeight) {
+      return food
+    }
+
+    return {
+      ...food,
+      unitName: defaultFoodUnitName,
+      unitWeight: defaultFoodUnitWeight,
+      protein: food.protein / 100,
+      carbs: food.carbs / 100,
+      fat: food.fat / 100,
+      calories: food.calories / 100,
+    }
+  })
+}
+
+/** 标准化本地缓存餐食。 */
+export function normalizeStoredEntries(entries: MealEntry[]): MealEntry[] {
+  return entries.map((entry) => {
+    const legacyEntry = entry as MealEntry & { quantity?: number; unitName?: string }
+
+    return {
+      ...entry,
+      quantity: legacyEntry.quantity ?? entry.grams,
+      unitName: legacyEntry.unitName ?? defaultFoodUnitName,
+    }
+  })
 }
 
 /** 根据个人信息和碳循环日计算每日目标。 */

@@ -69,7 +69,7 @@ public class MealLogService {
         applyDayTypes(mealLog, request);
         mealLogRepository.save(mealLog);
         Food food = foodService.getOwnedFood(request.foodId());
-        return toResponse(mealLogItemRepository.save(new MealLogItem(mealLog, food, request.grams())));
+        return toResponse(mealLogItemRepository.save(new MealLogItem(mealLog, food, request.quantity())));
     }
 
     /** 批量添加餐食明细。 */
@@ -86,7 +86,9 @@ public class MealLogService {
         applyDayTypes(item.mealLog, request);
         mealLogRepository.save(item.mealLog);
         item.food = foodService.getOwnedFood(request.foodId());
-        item.grams = request.grams();
+        item.quantity = request.quantity();
+        item.unitName = item.food.unitName;
+        item.grams = request.quantity() * item.food.unitWeight;
         return toResponse(mealLogItemRepository.save(item));
     }
 
@@ -207,7 +209,7 @@ public class MealLogService {
     private MealEntryResponse toResponse(MealLogItem item) {
         NutritionTotals nutrition = nutritionService.calculateFoodNutrition(item.food, item.grams);
         return new MealEntryResponse(item.id, item.mealLog.logDate, item.mealLog.mealType.name(), item.food.id,
-                item.food.name, item.grams, nutrition.calories(), nutrition.protein(), nutrition.carbs(),
+                item.food.name, item.quantity, item.unitName, item.grams, nutrition.calories(), nutrition.protein(), nutrition.carbs(),
                 nutrition.fat());
     }
 }

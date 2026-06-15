@@ -40,8 +40,8 @@ public class DefaultFoodSeedService implements ApplicationRunner {
     public void seedForUser(AppUser user) {
         for (DefaultFood food : DefaultFoodCatalog.all()) {
             if (!foodRepository.existsByUserAndName(user, food.name())) {
-                foodRepository.save(new Food(user, food.name(), food.protein(), food.carbs(), food.fat(),
-                        food.calories(), true));
+                foodRepository.save(new Food(user, food.name(), food.unitName(), food.unitWeight(), food.protein(),
+                        food.carbs(), food.fat(), food.calories(), true));
             }
         }
     }

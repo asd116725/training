@@ -1,8 +1,9 @@
-import { Button, Drawer, Form, Input, InputNumber } from 'antd'
+import { AutoComplete, Button, Drawer, Form, Input, InputNumber } from 'antd'
 import type { FormInstance, InputNumberProps } from 'antd'
 import { Check, Table2, X } from 'lucide-react'
 import type { ChangeEventHandler } from 'react'
 import { defaultFoodForm } from '../config'
+import { foodUnitNames } from '../domain'
 import type { FoodEditorMode, FoodFormDraftValues } from '../types'
 
 /** 食材营养字段配置。 */
@@ -10,7 +11,7 @@ const foodNutritionFields: Array<{
   label: string
   mark: string
   message: string
-  name: Exclude<keyof FoodFormDraftValues, 'name' | 'remark'>
+  name: Exclude<keyof FoodFormDraftValues, 'name' | 'remark' | 'unitName' | 'unitWeight'>
   note: string
   precision: number
   unit: string
@@ -45,6 +46,9 @@ interface FoodNumberInputProps {
   onChange?: InputNumberProps['onChange']
 }
 
+/** 食材单位选项。 */
+const foodUnitOptions = foodUnitNames.map((unitName) => ({ label: unitName, value: unitName }))
+
 /** 食材编辑抽屉组件。 */
 export function FoodDrawer({
   form,
@@ -65,6 +69,26 @@ export function FoodDrawer({
   const drawerTitle = mode === 'edit' ? '编辑食材' : '添加食材'
   /** 当前保存按钮文案。 */
   const submitText = mode === 'edit' ? '保存修改' : '保存食材'
+  /** 当前单位名称。 */
+  const unitName = Form.useWatch('unitName', form) ?? form.getFieldValue('unitName') ?? '克'
+  /** 当前单位重量。 */
+  const unitWeight = Number(Form.useWatch('unitWeight', form) ?? form.getFieldValue('unitWeight') ?? 1)
+
+  /** 切换食材单位。 */
+  const changeFoodUnit = (nextUnitName: string) => {
+    const normalizedUnitName = nextUnitName.trim()
+    const currentUnitWeight = Number(form.getFieldValue('unitWeight') ?? 1)
+
+    if (!normalizedUnitName) {
+      form.setFieldsValue({ unitName: '' })
+      return
+    }
+
+    form.setFieldsValue({
+      unitName: normalizedUnitName,
+      unitWeight: normalizedUnitName === '克' ? 1 : currentUnitWeight === 1 ? 100 : currentUnitWeight,
+    })
+  }
 
   return (
     <Drawer
@@ -72,7 +96,7 @@ export function FoodDrawer({
       closeIcon={<X size={17} />}
       footer={
         <div className="food-editor-footer">
-          <span>建议参考包装或数据库的每 100g 数值</span>
+          <span>保存后餐食记录将按单位数量录入</span>
           <div className="food-editor-actions">
             <Button className="food-editor-cancel" onClick={onCancel}>
               取消
@@ -92,7 +116,7 @@ export function FoodDrawer({
           </span>
           <span>
             <strong>{drawerTitle}</strong>
-            <small>录入每 100g 的营养数据，保存后会进入食材库用于五餐记录。</small>
+            <small>维护食材单位与每单位营养，餐食记录会按数量录入。</small>
           </span>
         </div>
       }
@@ -107,15 +131,44 @@ export function FoodDrawer({
         >
           <FoodNameInput />
         </Form.Item>
+        <div className="food-editor-unit-band">
+          <Form.Item
+            label={<FoodFieldLabel hint="可选择常用单位或自定义输入" title="单位名称" />}
+            name="unitName"
+            rules={[{ required: true, message: '请输入单位名称' }]}
+          >
+            <AutoComplete
+              options={foodUnitOptions}
+              placeholder="例如：克、瓶、勺"
+              filterOption={(inputValue, option) => String(option?.value ?? '').includes(inputValue.trim())}
+              onChange={changeFoodUnit}
+            />
+          </Form.Item>
+          <Form.Item
+            label={<FoodFieldLabel hint="一个单位对应克重" title="单位重量" />}
+            name="unitWeight"
+            rules={[{ required: true, message: '请输入单位重量' }]}
+          >
+            <InputNumber controls={false} disabled={unitName === '克'} min={1} precision={0} addonAfter="g" />
+          </Form.Item>
+          <div className="food-editor-unit-preview">
+            <span>换算</span>
+            <strong>1 {unitName} = {unitWeight || 0}g</strong>
+          </div>
+        </div>
         <div className="food-editor-nutrition-grid">
           {foodNutritionFields.map((field) => (
             <div className="food-editor-macro-card" key={field.name}>
               <Form.Item
-                label={<FoodFieldLabel hint="/ 100g" title={field.label} />}
+                label={<FoodFieldLabel hint={`/ ${unitName}`} title={field.label} />}
                 name={field.name}
                 rules={[{ required: true, message: field.message }]}
               >
-                <FoodNumberInput mark={field.mark} precision={field.precision} unit={field.unit} />
+                <FoodNumberInput
+                  mark={field.mark}
+                  precision={unitName === '克' ? field.name === 'calories' ? 2 : 3 : field.precision}
+                  unit={field.unit}
+                />
               </Form.Item>
               <span className="food-editor-note">
                 <i />
@@ -125,7 +178,7 @@ export function FoodDrawer({
           ))}
         </div>
         <Form.Item
-          label={<FoodFieldLabel hint="例如：一个牛奶馒头重30g" required={false} title="备注" />}
+          label={<FoodFieldLabel hint={`例如：一${unitName}牛奶重${unitWeight || 0}g`} required={false} title="备注" />}
           name="remark"
         >
           <Input.TextArea
