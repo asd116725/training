@@ -49,9 +49,6 @@ interface FoodNumberInputProps {
 /** 食材单位选项。 */
 const foodUnitOptions = foodUnitNames.map((unitName) => ({ label: unitName, value: unitName }))
 
-/** 营养字段名称列表。 */
-const foodNutritionFieldNames = foodNutritionFields.map((field) => field.name)
-
 /** 食材编辑抽屉组件。 */
 export function FoodDrawer({
   form,
@@ -76,13 +73,10 @@ export function FoodDrawer({
   const unitName = Form.useWatch('unitName', form) ?? form.getFieldValue('unitName') ?? '克'
   /** 当前单位重量。 */
   const unitWeight = Number(Form.useWatch('unitWeight', form) ?? form.getFieldValue('unitWeight') ?? 1)
-  /** 营养录入单位提示。 */
-  const nutritionUnitHint = unitName === '克' ? '/ 100g' : `/ ${unitName}`
 
   /** 切换食材单位。 */
   const changeFoodUnit = (nextUnitName: string) => {
     const normalizedUnitName = nextUnitName.trim()
-    const currentUnitName = String(form.getFieldValue('unitName') ?? '克').trim()
     const currentUnitWeight = Number(form.getFieldValue('unitWeight') ?? 1)
 
     if (!normalizedUnitName) {
@@ -91,20 +85,10 @@ export function FoodDrawer({
     }
 
     const nextUnitWeight = normalizedUnitName === '克' ? 1 : currentUnitWeight === 1 ? 100 : currentUnitWeight
-    const currentNutritionFactor = currentUnitName === '克' ? 100 : currentUnitWeight
-    const nextNutritionFactor = normalizedUnitName === '克' ? 100 : nextUnitWeight
-    const nutritionValues = Object.fromEntries(
-      foodNutritionFieldNames.map((fieldName) => {
-        const value = form.getFieldValue(fieldName)
-        const nextValue = value === null || value === undefined ? value : (Number(value) / currentNutritionFactor) * nextNutritionFactor
-        return [fieldName, nextValue]
-      }),
-    )
 
     form.setFieldsValue({
       unitName: normalizedUnitName,
       unitWeight: nextUnitWeight,
-      ...nutritionValues,
     })
   }
 
@@ -134,7 +118,7 @@ export function FoodDrawer({
           </span>
           <span>
             <strong>{drawerTitle}</strong>
-            <small>克按每100g录入，其他单位按每单位录入。</small>
+            <small>营养按每100g录入，餐食记录按单位数量换算。</small>
           </span>
         </div>
       }
@@ -178,7 +162,7 @@ export function FoodDrawer({
           {foodNutritionFields.map((field) => (
             <div className="food-editor-macro-card" key={field.name}>
               <Form.Item
-                label={<FoodFieldLabel hint={nutritionUnitHint} title={field.label} />}
+                label={<FoodFieldLabel hint="/ 100g" title={field.label} />}
                 name={field.name}
                 rules={[{ required: true, message: field.message }]}
               >

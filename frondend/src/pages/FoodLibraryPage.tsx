@@ -36,7 +36,7 @@ function matchFoodName(food: Food, keyword: string) {
 
 /** 获取食材每百克营养密度。 */
 function getFoodMacroPer100g(food: Food, key: FoodMacroKey) {
-  return (food[key] / food.unitWeight) * 100
+  return food[key]
 }
 
 /** 食材是否匹配宏量筛选。 */
@@ -70,9 +70,9 @@ function formatFoodNumber(value: number, digits = 3) {
   return Number.isInteger(value) ? `${value}` : value.toFixed(digits).replace(/\.?0+$/, '')
 }
 
-/** 格式化每单位营养展示。 */
-function formatFoodMacro(value: number, food: Food, unit: string) {
-  return `${formatFoodNumber(value)} ${unit} / ${food.unitName}`
+/** 格式化每百克营养展示。 */
+function formatFoodMacro(value: number, unit: string) {
+  return `${formatFoodNumber(value)} ${unit} / 100g`
 }
 
 /** 格式化食材单位换算。 */
@@ -85,13 +85,13 @@ function getFoodRemarkText(food: Food) {
   return food.remark?.trim() || '—'
 }
 
-/** 计算食材平均热量。 */
+/** 计算食材平均每百克热量。 */
 function getAverageCalories(foods: Food[]) {
   if (foods.length === 0) {
     return 0
   }
 
-  return Math.round(foods.reduce((total, food) => total + food.calories, 0) / foods.length)
+  return Math.round(foods.reduce((total, food) => total + getFoodMacroPer100g(food, 'calories'), 0) / foods.length)
 }
 
 /** 食材库二级页面属性。 */
@@ -164,25 +164,25 @@ export function FoodLibraryPage({
         dataIndex: 'protein',
         title: '蛋白质',
         width: 150,
-        render: (value: Food['protein'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['protein']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'carbs',
         title: '碳水',
         width: 140,
-        render: (value: Food['carbs'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['carbs']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'fat',
         title: '脂肪',
         width: 140,
-        render: (value: Food['fat'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['fat']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'calories',
         title: '热量',
         width: 150,
-        render: (value: Food['calories'], food) => formatFoodMacro(value, food, 'kcal'),
+        render: (value: Food['calories']) => formatFoodMacro(value, 'kcal'),
       },
       {
         key: 'tags',
@@ -252,22 +252,22 @@ export function FoodLibraryPage({
       {
         dataIndex: 'protein',
         title: '蛋白质',
-        render: (value: Food['protein'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['protein']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'carbs',
         title: '碳水',
-        render: (value: Food['carbs'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['carbs']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'fat',
         title: '脂肪',
-        render: (value: Food['fat'], food) => formatFoodMacro(value, food, 'g'),
+        render: (value: Food['fat']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'calories',
         title: '热量',
-        render: (value: Food['calories'], food) => formatFoodMacro(value, food, 'kcal'),
+        render: (value: Food['calories']) => formatFoodMacro(value, 'kcal'),
       },
       {
         align: 'right',
@@ -295,12 +295,12 @@ export function FoodLibraryPage({
     <section className="food-library-page">
       <div className="food-library-hero">
         <div>
-          <p className="app-label">食材数据 · 每单位</p>
+          <p className="app-label">食材数据 · 每 100g</p>
           <h2>
             <Database size={28} />
             食材库
           </h2>
-          <p className="muted-text">维护每单位食材的碳蛋脂、热量与换算克重，所有推荐和五餐记录都会使用这里的数据。</p>
+          <p className="muted-text">维护每 100g 食材的碳蛋脂、热量与单位换算，五餐记录会按单位数量换算克重。</p>
         </div>
         <div className="food-library-actions">
           <Button className="ghost-action" icon={<FileDown size={16} />} onClick={openPublicFoodModal}>
@@ -315,7 +315,7 @@ export function FoodLibraryPage({
       <div className="food-library-stats">
         <FoodStat label="食材总数" value={`${foods.length}`} />
         <FoodStat label="当前结果" value={`${filteredFoods.length}`} />
-        <FoodStat label="平均单位热量" value={`${getAverageCalories(foods)} kcal`} />
+        <FoodStat label="平均百克热量" value={`${getAverageCalories(foods)} kcal`} />
         <FoodStat label="数据来源" value={foodSourceLabels[foodSource]} />
       </div>
 

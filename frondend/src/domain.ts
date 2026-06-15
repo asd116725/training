@@ -179,14 +179,14 @@ export const defaultProfile: Profile = {
 
 /** 默认食材库。 */
 export const defaultFoods: Food[] = [
-  { id: 'chicken-breast', name: '鸡胸肉', unitName: '克', unitWeight: 1, protein: 0.23, carbs: 0, fat: 0.02, calories: 1.1 },
-  { id: 'egg', name: '鸡蛋', unitName: '克', unitWeight: 1, protein: 0.13, carbs: 0.01, fat: 0.1, calories: 1.55 },
-  { id: 'rice', name: '米饭', unitName: '克', unitWeight: 1, protein: 0.026, carbs: 0.259, fat: 0.003, calories: 1.16 },
-  { id: 'oat', name: '燕麦', unitName: '克', unitWeight: 1, protein: 0.169, carbs: 0.663, fat: 0.069, calories: 3.89 },
-  { id: 'sweet-potato', name: '红薯', unitName: '克', unitWeight: 1, protein: 0.016, carbs: 0.201, fat: 0.001, calories: 0.86 },
-  { id: 'salmon', name: '三文鱼', unitName: '克', unitWeight: 1, protein: 0.2, carbs: 0, fat: 0.13, calories: 2.08 },
-  { id: 'broccoli', name: '西兰花', unitName: '克', unitWeight: 1, protein: 0.028, carbs: 0.066, fat: 0.004, calories: 0.34 },
-  { id: 'olive-oil', name: '橄榄油', unitName: '克', unitWeight: 1, protein: 0, carbs: 0, fat: 1, calories: 8.84 },
+  { id: 'chicken-breast', name: '鸡胸肉', unitName: '克', unitWeight: 1, protein: 23, carbs: 0, fat: 2, calories: 110 },
+  { id: 'egg', name: '鸡蛋', unitName: '克', unitWeight: 1, protein: 13, carbs: 1, fat: 10, calories: 155 },
+  { id: 'rice', name: '米饭', unitName: '克', unitWeight: 1, protein: 2.6, carbs: 25.9, fat: 0.3, calories: 116 },
+  { id: 'oat', name: '燕麦', unitName: '克', unitWeight: 1, protein: 16.9, carbs: 66.3, fat: 6.9, calories: 389 },
+  { id: 'sweet-potato', name: '红薯', unitName: '克', unitWeight: 1, protein: 1.6, carbs: 20.1, fat: 0.1, calories: 86 },
+  { id: 'salmon', name: '三文鱼', unitName: '克', unitWeight: 1, protein: 20, carbs: 0, fat: 13, calories: 208 },
+  { id: 'broccoli', name: '西兰花', unitName: '克', unitWeight: 1, protein: 2.8, carbs: 6.6, fat: 0.4, calories: 34 },
+  { id: 'olive-oil', name: '橄榄油', unitName: '克', unitWeight: 1, protein: 0, carbs: 0, fat: 100, calories: 884 },
 ]
 
 /** 默认餐食记录。 */
@@ -220,7 +220,7 @@ export function normalizeFoodUnitWeight(unitWeight?: number) {
 
 /** 按克数计算单个食材营养。 */
 export function calculateFoodNutrition(food: Food, grams: number): NutritionTotals {
-  const ratio = grams / normalizeFoodUnitWeight(food.unitWeight)
+  const ratio = grams / 100
 
   return {
     calories: roundOne(food.calories * ratio),
@@ -247,23 +247,24 @@ export function sumNutrition(items: NutritionTotals[]): NutritionTotals {
 export function normalizeStoredFoods(foods: Food[]): Food[] {
   return foods.map((food) => {
     const legacyFood = food as Food & { unitName?: string; unitWeight?: number }
-    const hasUnitFields = legacyFood.unitName !== undefined || legacyFood.unitWeight !== undefined
-    const hasInvalidUnit = !legacyFood.unitName?.trim() || !legacyFood.unitWeight || legacyFood.unitWeight <= 0
     const unitName = normalizeFoodUnitName(legacyFood.unitName)
     const unitWeight = normalizeFoodUnitWeight(legacyFood.unitWeight)
 
-    if (hasUnitFields && !hasInvalidUnit) {
-      return { ...food, unitName, unitWeight }
-    }
+    const normalizedFood = { ...food, unitName, unitWeight }
+    const shouldScaleFromPerGram = normalizedFood.calories <= 10 && normalizedFood.protein <= 1
+      && normalizedFood.carbs <= 1 && normalizedFood.fat <= 1
+    const normalizedNutrition = shouldScaleFromPerGram
+      ? {
+        protein: normalizedFood.protein * 100,
+        carbs: normalizedFood.carbs * 100,
+        fat: normalizedFood.fat * 100,
+        calories: normalizedFood.calories * 100,
+      }
+      : {}
 
     return {
-      ...food,
-      unitName,
-      unitWeight,
-      protein: food.protein / 100,
-      carbs: food.carbs / 100,
-      fat: food.fat / 100,
-      calories: food.calories / 100,
+      ...normalizedFood,
+      ...normalizedNutrition,
     }
   })
 }

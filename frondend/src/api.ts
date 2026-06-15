@@ -247,16 +247,18 @@ function notifyApiError(error: unknown) {
 /** 将后端食材转换为前端食材。 */
 function normalizeFood(food: FoodResponse): Food {
   const hasInvalidUnit = !food.unitName?.trim() || !food.unitWeight || food.unitWeight <= 0
+  const shouldScaleFromPerGram = food.calories <= 10 && food.protein <= 1 && food.carbs <= 1 && food.fat <= 1
+  const nutritionFactor = shouldScaleFromPerGram ? 100 : 1
 
   return {
     id: String(food.id),
     name: food.name,
     unitName: hasInvalidUnit ? defaultFoodUnitName : normalizeFoodUnitName(food.unitName),
     unitWeight: hasInvalidUnit ? defaultFoodUnitWeight : normalizeFoodUnitWeight(food.unitWeight),
-    protein: hasInvalidUnit ? food.protein / 100 : food.protein,
-    carbs: hasInvalidUnit ? food.carbs / 100 : food.carbs,
-    fat: hasInvalidUnit ? food.fat / 100 : food.fat,
-    calories: hasInvalidUnit ? food.calories / 100 : food.calories,
+    protein: food.protein * nutritionFactor,
+    carbs: food.carbs * nutritionFactor,
+    fat: food.fat * nutritionFactor,
+    calories: food.calories * nutritionFactor,
     remark: food.remark ?? '',
     owned: Boolean(food.owned),
   }

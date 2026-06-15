@@ -62,7 +62,7 @@ class MealLogServiceTest {
     void setUp() {
         user = new AppUser("13800000000", "hash");
         user.id = 10L;
-        food = new Food(user, "米饭", "克", 1, 0.026, 0.259, 0.003, 1.16);
+        food = new Food(user, "米饭", "克", 1, 2.6, 25.9, 0.3, 116);
         food.id = 1L;
         currentUserContext.set(user);
         mealLogService = new MealLogService(mealLogRepository, mealLogItemRepository, foodService,
@@ -98,7 +98,7 @@ class MealLogServiceTest {
     @Test
     void shouldSaveQuantityAndGramSnapshotForUnitFood() {
         LocalDate date = LocalDate.of(2026, 6, 15);
-        Food milk = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
+        Food milk = new Food(user, "牛奶", "瓶", 200, 3.6, 5, 4, 70);
         milk.id = 2L;
         when(mealLogRepository.findFirstByUserAndLogDateAndMealTypeOrderByIdAsc(user, date, MealType.BREAKFAST))
                 .thenReturn(Optional.empty());

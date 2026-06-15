@@ -18,9 +18,9 @@ import org.springframework.jdbc.core.RowMapper;
 /** 数据库兼容升级器测试。 */
 class SchemaUpgradeRunnerTest {
 
-    /** 验证单位字段首次新增时才迁移旧食材营养。 */
+    /** 验证单位字段迁移保留每百克营养。 */
     @Test
-    void shouldMigrateLegacyFoodUnitsOnlyOnce() {
+    void shouldKeepFoodNutritionPer100gWhenMigratingUnits() {
         RecordingJdbcTemplate jdbcTemplate = new RecordingJdbcTemplate();
         jdbcTemplate.addColumn("foods", "id");
         jdbcTemplate.addColumn("meal_log_items", "id");
@@ -29,14 +29,16 @@ class SchemaUpgradeRunnerTest {
 
         runner.run(null);
 
-        assertEquals(2, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(0, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(1, jdbcTemplate.countExecuted("protein = protein * 100"));
         assertEquals(2, jdbcTemplate.countExecuted("quantity = grams"));
         assertTrue(jdbcTemplate.hasExecuted("TRIM(unit_name) = ''"));
 
         jdbcTemplate.clearSql();
         runner.run(null);
 
-        assertEquals(1, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(0, jdbcTemplate.countExecuted("protein = protein / 100"));
+        assertEquals(1, jdbcTemplate.countExecuted("protein = protein * 100"));
         assertEquals(1, jdbcTemplate.countExecuted("quantity = grams"));
         assertTrue(jdbcTemplate.hasExecuted("TRIM(unit_name) = ''"));
     }

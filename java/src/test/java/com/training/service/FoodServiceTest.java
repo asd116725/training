@@ -89,7 +89,7 @@ class FoodServiceTest {
     void shouldHideDefaultSeedFoodsButKeepManualFoodsInPublicList() {
         AppUser otherUser = new AppUser("13900000000", "hash");
         otherUser.id = 20L;
-        Food defaultSeedFood = new Food(otherUser, "牛奶", "克", 1, 0.036, 0.05, 0.04, 0.7);
+        Food defaultSeedFood = new Food(otherUser, "牛奶", "克", 1, 3.6, 5, 4, 70);
         defaultSeedFood.id = 1L;
         defaultSeedFood.defaultSeed = true;
         Food manualFood = new Food(otherUser, "牛奶", "瓶", 200, 8, 10, 8, 150);
@@ -186,7 +186,7 @@ class FoodServiceTest {
         when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.empty());
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
-                () -> foodService.updateFood(1L, new FoodRequest("牛肉", "克", 1, 0.23, 0, 0.03, 1.2, "")));
+                () -> foodService.updateFood(1L, new FoodRequest("牛肉", "克", 1, 23, 0, 3, 120, "")));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
     }

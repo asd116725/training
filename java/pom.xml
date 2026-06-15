@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.training</groupId>
 	<artifactId>training</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.2.0</version>
 	<name>training</name>
 	<description>Strength training and carb cycling fat loss tool</description>
 	<url/>

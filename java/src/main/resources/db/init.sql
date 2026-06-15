@@ -114,35 +114,35 @@ CREATE TABLE IF NOT EXISTS recommendation_prompts (
 );
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '鸡胸肉', '克', 1, 0.23, 0, 0.02, 1.1
+SELECT '鸡胸肉', '克', 1, 23, 0, 2, 110
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '鸡胸肉' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '鸡蛋', '克', 1, 0.13, 0.01, 0.1, 1.55
+SELECT '鸡蛋', '克', 1, 13, 1, 10, 155
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '鸡蛋' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '米饭', '克', 1, 0.026, 0.259, 0.003, 1.16
+SELECT '米饭', '克', 1, 2.6, 25.9, 0.3, 116
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '米饭' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '燕麦', '克', 1, 0.169, 0.663, 0.069, 3.89
+SELECT '燕麦', '克', 1, 16.9, 66.3, 6.9, 389
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '燕麦' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '红薯', '克', 1, 0.016, 0.201, 0.001, 0.86
+SELECT '红薯', '克', 1, 1.6, 20.1, 0.1, 86
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '红薯' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '三文鱼', '克', 1, 0.2, 0, 0.13, 2.08
+SELECT '三文鱼', '克', 1, 20, 0, 13, 208
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '三文鱼' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '西兰花', '克', 1, 0.028, 0.066, 0.004, 0.34
+SELECT '西兰花', '克', 1, 2.8, 6.6, 0.4, 34
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '西兰花' AND user_id IS NULL);
 
 INSERT INTO foods (name, unit_name, unit_weight, protein, carbs, fat, calories)
-SELECT '橄榄油', '克', 1, 0, 0, 1, 8.84
+SELECT '橄榄油', '克', 1, 0, 0, 100, 884
 WHERE NOT EXISTS (SELECT 1 FROM foods WHERE name = '橄榄油' AND user_id IS NULL);
 
 INSERT INTO cycle_macro_settings (cycle_type, carbs_per_kg, protein_per_kg, fat_per_kg)

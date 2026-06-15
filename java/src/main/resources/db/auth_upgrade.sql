@@ -55,21 +55,29 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 UPDATE foods
 SET unit_name = '克',
-    unit_weight = 1,
-    protein = protein / 100,
-    carbs = carbs / 100,
-    fat = fat / 100,
-    calories = calories / 100
+    unit_weight = 1
 WHERE @should_migrate_food_units = 1;
 UPDATE foods
 SET unit_name = '克',
-    unit_weight = 1,
-    protein = protein / 100,
-    carbs = carbs / 100,
-    fat = fat / 100,
-    calories = calories / 100
+    unit_weight = 1
 WHERE unit_weight IS NULL OR unit_weight <= 0
    OR unit_name IS NULL OR TRIM(unit_name) = '';
+UPDATE foods
+SET protein = protein / unit_weight * 100,
+    carbs = carbs / unit_weight * 100,
+    fat = fat / unit_weight * 100,
+    calories = calories / unit_weight * 100
+WHERE unit_weight > 1
+  AND (protein > 1 OR carbs > 1 OR fat > 1 OR calories > 20);
+UPDATE foods
+SET protein = protein * 100,
+    carbs = carbs * 100,
+    fat = fat * 100,
+    calories = calories * 100
+WHERE protein <= 1
+  AND carbs <= 1
+  AND fat <= 1
+  AND calories <= 10;
 UPDATE foods
 SET protein = ROUND(protein, 3),
     carbs = ROUND(carbs, 3),
@@ -133,13 +141,13 @@ CREATE TEMPORARY TABLE default_seed_foods (
 );
 
 INSERT INTO default_seed_foods (name, unit_name, unit_weight, protein, carbs, fat, calories) VALUES
-('牛奶', '克', 1, 0.036, 0.05, 0.04, 0.7),
-('虾', '克', 1, 0.2, 0, 0.005, 0.85),
-('燕麦吐司', '克', 1, 0.087, 0.352, 0.055, 2.44),
-('牛肉', '克', 1, 0.23, 0, 0.03, 1.2),
-('蛋白粉', '克', 1, 0.731, 0.129, 0.035, 3.8),
-('香蕉', '克', 1, 0.014, 0.22, 0.002, 0.93),
-('蓝莓', '克', 1, 0.005, 0.145, 0.003, 0.57);
+('牛奶', '克', 1, 3.6, 5, 4, 70),
+('虾', '克', 1, 20, 0, 0.5, 85),
+('燕麦吐司', '克', 1, 8.7, 35.2, 5.5, 244),
+('牛肉', '克', 1, 23, 0, 3, 120),
+('蛋白粉', '克', 1, 73.1, 12.9, 3.5, 380),
+('香蕉', '克', 1, 1.4, 22, 0.2, 93),
+('蓝莓', '克', 1, 0.5, 14.5, 0.3, 57);
 
 UPDATE foods target
 JOIN default_seed_foods seed

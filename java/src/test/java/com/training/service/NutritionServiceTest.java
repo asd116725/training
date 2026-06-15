@@ -72,7 +72,7 @@ class NutritionServiceTest {
     /** 验证按食材单位重量换算实际克重营养。 */
     @Test
     void shouldCalculateFoodNutritionByUnitWeight() {
-        Food milk = new Food(new AppUser("13800000000", "hash"), "牛奶", "瓶", 200, 7.2, 10, 8, 140);
+        Food milk = new Food(new AppUser("13800000000", "hash"), "牛奶", "瓶", 200, 3.6, 5, 4, 70);
 
         NutritionTotals nutrition = nutritionService.calculateFoodNutrition(milk, 400);
 
@@ -93,9 +93,9 @@ class NutritionServiceTest {
                 new NutritionTotals(900, 70, 90, 20),
                 new NutritionTotals(1250, 86, 140, 38),
                 List.of(
-                        new FoodSnapshot("1", "鸡胸肉", "克", 1, 0.23, 0, 0.02, 1.1),
-                        new FoodSnapshot("2", "米饭", "克", 1, 0.026, 0.259, 0.003, 1.16),
-                        new FoodSnapshot("3", "橄榄油", "克", 1, 0, 0, 1, 8.84)),
+                        new FoodSnapshot("1", "鸡胸肉", "克", 1, 23, 0, 2, 110),
+                        new FoodSnapshot("2", "米饭", "克", 1, 2.6, 25.9, 0.3, 116),
+                        new FoodSnapshot("3", "橄榄油", "克", 1, 0, 0, 100, 884)),
                 List.of(new MealEntrySnapshot("a", "breakfast", "2", 200)),
                 Map.of(),
                 List.of());

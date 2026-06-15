@@ -54,6 +54,8 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
             migrateLegacyMealUnits();
         }
         normalizeInvalidUnits();
+        normalizeLegacyUnitFoodNutrition();
+        normalizePerGramFoodNutrition();
         normalizeFoodNutritionScale();
         dropIndexIfExists("meal_logs", "uk_meal_logs_date_type");
         dropIndexIfExists("cycle_macro_settings", "cycle_type");
@@ -72,16 +74,12 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         markExistingDefaultSeedFoods();
     }
 
-    /** 首次新增单位字段时将旧每百克营养换算为每克营养。 */
+    /** 首次新增单位字段时保留旧每百克营养。 */
     private void migrateLegacyFoodUnits() {
         jdbcTemplate.update("""
                 UPDATE foods
                 SET unit_name = '克',
-                    unit_weight = 1,
-                    protein = protein / 100,
-                    carbs = carbs / 100,
-                    fat = fat / 100,
-                    calories = calories / 100
+                    unit_weight = 1
                 """);
     }
 
@@ -99,11 +97,7 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         jdbcTemplate.update("""
                 UPDATE foods
                 SET unit_name = '克',
-                    unit_weight = 1,
-                    protein = protein / 100,
-                    carbs = carbs / 100,
-                    fat = fat / 100,
-                    calories = calories / 100
+                    unit_weight = 1
                 WHERE unit_weight IS NULL OR unit_weight <= 0
                    OR unit_name IS NULL OR TRIM(unit_name) = ''
                 """);
@@ -116,6 +110,34 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                 UPDATE meal_log_items
                 SET quantity = grams
                 WHERE quantity <= 0 AND grams > 0
+                """);
+    }
+
+    /** 扫描并修复旧版非克单位的每单位营养。 */
+    private void normalizeLegacyUnitFoodNutrition() {
+        jdbcTemplate.update("""
+                UPDATE foods
+                SET protein = protein / unit_weight * 100,
+                    carbs = carbs / unit_weight * 100,
+                    fat = fat / unit_weight * 100,
+                    calories = calories / unit_weight * 100
+                WHERE unit_weight > 1
+                  AND (protein > 1 OR carbs > 1 OR fat > 1 OR calories > 20)
+                """);
+    }
+
+    /** 扫描并修复旧版每克入库营养。 */
+    private void normalizePerGramFoodNutrition() {
+        jdbcTemplate.update("""
+                UPDATE foods
+                SET protein = protein * 100,
+                    carbs = carbs * 100,
+                    fat = fat * 100,
+                    calories = calories * 100
+                WHERE protein <= 1
+                  AND carbs <= 1
+                  AND fat <= 1
+                  AND calories <= 10
                 """);
     }
 

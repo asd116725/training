@@ -56,14 +56,14 @@ public class NutritionService {
 
     /** 计算食材营养。 */
     public NutritionTotals calculateFoodNutrition(Food food, double grams) {
-        double ratio = grams / food.unitWeight;
+        double ratio = grams / 100;
         return new NutritionTotals(roundOne(food.calories * ratio), roundOne(food.protein * ratio),
                 roundOne(food.carbs * ratio), roundOne(food.fat * ratio));
     }
 
     /** 计算食材快照营养。 */
     public NutritionTotals calculateFoodNutrition(FoodSnapshot food, double grams) {
-        double ratio = grams / food.unitWeight();
+        double ratio = grams / 100;
         return new NutritionTotals(roundOne(food.calories() * ratio), roundOne(food.protein() * ratio),
                 roundOne(food.carbs() * ratio), roundOne(food.fat() * ratio));
     }
@@ -96,21 +96,21 @@ public class NutritionService {
         }
 
         NutritionTotals remaining = request.remaining();
-        FoodSnapshot proteinFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.protein(), food.unitWeight())))
+        FoodSnapshot proteinFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.protein())))
                 .orElse(foods.get(0));
-        FoodSnapshot carbFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.carbs(), food.unitWeight())))
+        FoodSnapshot carbFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.carbs())))
                 .orElse(foods.get(0));
-        FoodSnapshot fatFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.fat(), food.unitWeight())))
+        FoodSnapshot fatFood = foods.stream().max(Comparator.comparingDouble(food -> macroPerGram(food.fat())))
                 .orElse(foods.get(0));
 
         return meals.stream()
                 .flatMap(meal -> List.of(
                         buildRecommendation(meal, proteinFood,
-                                gramsFor(remaining.protein() / meals.size(), proteinFood.protein(), proteinFood.unitWeight())),
+                                gramsFor(remaining.protein() / meals.size(), proteinFood.protein())),
                         buildRecommendation(meal, carbFood,
-                                gramsFor(remaining.carbs() / meals.size(), carbFood.carbs(), carbFood.unitWeight())),
+                                gramsFor(remaining.carbs() / meals.size(), carbFood.carbs())),
                         buildRecommendation(meal, fatFood,
-                                gramsFor(remaining.fat() / meals.size(), fatFood.fat(), fatFood.unitWeight()))).stream())
+                                gramsFor(remaining.fat() / meals.size(), fatFood.fat()))).stream())
                 .filter(item -> item.grams() >= 5)
                 .toList();
     }
@@ -227,13 +227,13 @@ public class NutritionService {
     }
 
     /** 根据营养缺口换算克数。 */
-    private double gramsFor(double targetMacro, double foodMacroPerUnit, double unitWeight) {
-        return foodMacroPerUnit <= 0 ? 0 : Math.round(((targetMacro / foodMacroPerUnit) * unitWeight) / 5) * 5;
+    private double gramsFor(double targetMacro, double foodMacroPer100g) {
+        return foodMacroPer100g <= 0 ? 0 : Math.round(((targetMacro / foodMacroPer100g) * 100) / 5) * 5;
     }
 
-    /** 计算每克营养密度。 */
-    private double macroPerGram(double macroPerUnit, double unitWeight) {
-        return macroPerUnit / unitWeight;
+    /** 计算每百克营养密度。 */
+    private double macroPerGram(double macroPer100g) {
+        return macroPer100g;
     }
 
     /** 组装推荐项。 */
