@@ -4,7 +4,8 @@ import type { AppRoute } from '../types'
 
 /** 顶部导航配置。 */
 const navItems: Array<{ icon: LucideIcon; label: string; route: AppRoute }> = [
-  { icon: Dumbbell, label: '今日计划', route: 'dashboard' },
+  { icon: Dumbbell, label: '减脂计划', route: 'cutting' },
+  { icon: Dumbbell, label: '增肌计划', route: 'bulking' },
   { icon: Database, label: '食材库', route: 'foods' },
 ]
 

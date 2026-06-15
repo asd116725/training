@@ -1,18 +1,15 @@
 import { Form, Select } from 'antd'
 import type { Profile } from '../domain'
+import { activityLevelOptions } from '../profileOptions'
 import { NumberWithUnitInput } from './NumberWithUnitInput'
+
+/** 活动水平下拉弹层宽度。 */
+const activityLevelPopupWidth = 360
 
 /** 性别选项。 */
 const genderOptions = [
   { label: '男', value: 'male' },
   { label: '女', value: 'female' },
-]
-
-/** 活动水平选项。 */
-const activityLevelOptions = [
-  { label: '轻活动', value: 1.35 },
-  { label: '每周 3-5 练', value: 1.55 },
-  { label: '高强度训练', value: 1.72 },
 ]
 
 /** 个人信息数字字段配置。 */
@@ -38,7 +35,7 @@ export function ProfileFormFields({ className = 'modal-grid' }: { className?: st
         <Select options={genderOptions} placeholder="请选择性别" />
       </Form.Item>
       <Form.Item className="profile-form-field" label="活动水平" name="activityLevel" rules={[{ required: true, message: '请选择活动水平' }]}>
-        <Select options={activityLevelOptions} placeholder="请选择活动水平" />
+        <Select options={activityLevelOptions} placeholder="请选择活动水平" popupMatchSelectWidth={activityLevelPopupWidth} />
       </Form.Item>
       {profileNumberFields.map((field) => (
         <Form.Item

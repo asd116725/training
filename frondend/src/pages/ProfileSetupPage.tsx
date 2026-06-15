@@ -58,7 +58,7 @@ export function ProfileSetupPage({
               loading={saving || checking}
               type="primary"
             >
-              {checking ? '正在检查档案' : '保存并进入今日计划'}
+              {checking ? '正在检查档案' : '保存并进入减脂计划'}
             </Button>
           </Form>
         </div>

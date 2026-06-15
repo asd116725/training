@@ -1,6 +1,7 @@
 import { Button } from 'antd'
 import { ChevronLeft, ChevronRight, LogOut, Pencil, Target, UserRound } from 'lucide-react'
 import type { DailyPlan, Profile } from '../domain'
+import { getActivityLevelLabel } from '../profileOptions'
 import type { AuthUser, ProfileSource } from '../types'
 import { SectionTitle } from './Common'
 
@@ -15,18 +16,6 @@ const profileSourceLabels: Record<ProfileSource, string> = {
 const genderLabels: Record<Profile['gender'], string> = {
   female: '女',
   male: '男',
-}
-
-/** 活动水平展示文案。 */
-const activityLevelLabels: Record<string, string> = {
-  '1.35': '轻活动',
-  '1.55': '每周 3-5 练',
-  '1.72': '高强度训练',
-}
-
-/** 获取活动水平文案。 */
-function getActivityLevelLabel(value: number) {
-  return activityLevelLabels[String(value)] ?? `${value}`
 }
 
 /** 个人目标面板组件。 */

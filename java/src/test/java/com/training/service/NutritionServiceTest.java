@@ -36,6 +36,23 @@ class NutritionServiceTest {
         assertTrue(plan.targetWeight() < 78);
     }
 
+    /** 验证增肌日目标热量跟随宏量配置换算。 */
+    @Test
+    void shouldCalculateBulkingPlanFromMacroSettings() {
+        ProfileRequest profile = new ProfileRequest("male", 175, 78, 30, 22, 15, 1.55);
+
+        DailyPlan trainingPlan = nutritionService.calculateDailyPlan(profile, "training");
+        DailyPlan restPlan = nutritionService.calculateDailyPlan(profile, "rest");
+
+        assertEquals(390, trainingPlan.carbs());
+        assertEquals(78, trainingPlan.fat());
+        assertEquals(trainingPlan.carbs() * 4 + trainingPlan.protein() * 4 + trainingPlan.fat() * 9,
+                trainingPlan.calories());
+        assertTrue(trainingPlan.calories() > trainingPlan.tdee());
+        assertTrue(restPlan.calories() > restPlan.tdee());
+        assertTrue(trainingPlan.calories() > restPlan.calories());
+    }
+
     /** 验证剩余营养缺口。 */
     @Test
     void shouldCalculateRemaining() {

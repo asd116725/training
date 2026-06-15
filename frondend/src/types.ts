@@ -1,7 +1,7 @@
 import type { MealType, NutritionTotals, Profile, RecommendedItem } from './domain'
 
 /** 应用页面路由。 */
-export type AppRoute = 'dashboard' | 'foods'
+export type AppRoute = 'cutting' | 'bulking' | 'foods'
 
 /** 登录用户。 */
 export interface AuthUser {

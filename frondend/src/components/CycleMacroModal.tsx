@@ -1,10 +1,6 @@
 import { Form, Modal } from 'antd'
 import type { FormInstance } from 'antd'
-import { cycleLabels, defaultCycleMacroSettings, type CycleMacroSettings, type CycleType } from '../domain'
 import { NumberWithUnitInput } from './NumberWithUnitInput'
-
-/** 碳循环日顺序。 */
-const cycleTypes: CycleType[] = ['high', 'medium', 'low']
 
 /** 每公斤体重宏量字段。 */
 const macroPerKgFields = [
@@ -13,18 +9,29 @@ const macroPerKgFields = [
   { label: '脂肪', name: 'fatPerKg', unit: 'g/kg' },
 ] as const
 
-/** 碳循环宏量配置弹窗组件。 */
-export function CycleMacroModal({
-  form,
-  open,
-  onCancel,
-  onSubmit,
-}: {
-  form: FormInstance<CycleMacroSettings>
+/** 宏量配置弹窗属性。 */
+interface CycleMacroModalProps<T extends string> {
+  dayLabels: Record<T, string>
+  dayTypes: T[]
+  form: FormInstance
+  initialValues: Record<T, { carbsPerKg: number; proteinPerKg: number; fatPerKg: number }>
   open: boolean
+  title: string
   onCancel: () => void
   onSubmit: () => void
-}) {
+}
+
+/** 碳循环宏量配置弹窗组件。 */
+export function CycleMacroModal({
+  dayLabels,
+  dayTypes,
+  form,
+  initialValues,
+  open,
+  title,
+  onCancel,
+  onSubmit,
+}: CycleMacroModalProps<string>) {
   return (
     <Modal
       centered
@@ -32,20 +39,20 @@ export function CycleMacroModal({
       forceRender
       okText="保存配置"
       open={open}
-      title="编辑碳循环目标"
+      title={title}
       onCancel={onCancel}
       onOk={onSubmit}
     >
-      <Form className="cycle-macro-form" form={form} initialValues={defaultCycleMacroSettings} layout="vertical">
-        {cycleTypes.map((cycleType) => (
-          <section className="cycle-macro-card" key={cycleType}>
-            <h3>{cycleLabels[cycleType]}</h3>
+      <Form className="cycle-macro-form" form={form} initialValues={initialValues} layout="vertical">
+        {dayTypes.map((dayType) => (
+          <section className="cycle-macro-card" key={dayType}>
+            <h3>{dayLabels[dayType]}</h3>
             <div className="modal-grid">
               {macroPerKgFields.map((field) => (
                 <Form.Item
                   key={field.name}
                   label={`每公斤${field.label}`}
-                  name={[cycleType, field.name]}
+                  name={[dayType, field.name]}
                   rules={[{ required: true, message: `请输入每公斤${field.label}` }]}
                 >
                   <NumberWithUnitInput min={0} precision={2} step={0.1} unit={field.unit} />

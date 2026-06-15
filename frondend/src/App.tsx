@@ -48,22 +48,34 @@ import { ProfileModal } from './components/ProfileModal'
 import { StatusPill } from './components/Common'
 import { antdTheme, defaultFoodForm, initialMealForm } from './config'
 import {
+  bulkingDayLabels,
+  bulkingDayTypes,
+  calculateBulkingDailyPlan,
   calculateDailyPlan,
   calculateEntryTotals,
   calculateRemaining,
   createId,
   cycleLabels,
+  cycleTypes,
+  defaultBulkingMacroSettings,
   defaultCycleMacroSettings,
   defaultFoods,
   mealLabels,
   defaultProfile,
   getTargetRecommendationMeals,
+  normalizeBulkingMacroSettings,
   normalizeCycleMacroSettings,
+  planLabels,
+  type BulkingDayType,
+  type BulkingMacroSettings,
   type CycleMacroSettings,
   type CycleType,
+  type DailyPlan,
   type Food,
   type MealEntry,
   type MealType,
+  type PlanDayType,
+  type PlanType,
   type Profile,
   type RecommendedItem,
 } from './domain'
@@ -104,12 +116,42 @@ function getLocalDateString(date = new Date()) {
 
 /** 根据地址识别当前页面。 */
 function getRouteFromPath(pathname: string): AppRoute {
-  return pathname.startsWith('/foods') ? 'foods' : 'dashboard'
+  if (pathname.startsWith('/foods')) {
+    return 'foods'
+  }
+
+  return pathname.startsWith('/bulking') ? 'bulking' : 'cutting'
 }
 
 /** 获取页面对应地址。 */
 function getPathFromRoute(route: AppRoute) {
-  return route === 'foods' ? '/foods' : '/'
+  if (route === 'foods') {
+    return '/foods'
+  }
+
+  return route === 'bulking' ? '/bulking' : '/'
+}
+
+/** 根据路由获取当前计划类型。 */
+function getPlanTypeFromRoute(route: AppRoute): PlanType {
+  return route === 'bulking' ? 'bulking' : 'cutting'
+}
+
+/** 创建每公斤宏量摘要。 */
+function createMacroSummary(profile: Profile, dailyPlan: DailyPlan) {
+  return `每公斤体重：碳水 ${roundMacroPerKg(dailyPlan.carbs, profile.weight)}g · 蛋白 ${roundMacroPerKg(dailyPlan.protein, profile.weight)}g · 脂肪 ${roundMacroPerKg(dailyPlan.fat, profile.weight)}g`
+}
+
+/** 计算每公斤宏量并保留一位小数。 */
+function roundMacroPerKg(value: number, weight: number) {
+  return Math.round((value / weight) * 10) / 10
+}
+
+/** 计算热量缺口或盈余。 */
+function getCalorieBalance(planType: PlanType, calories: number, tdee: number) {
+  return planType === 'bulking'
+    ? Math.max(0, Math.round(calories - tdee))
+    : Math.max(0, Math.round(tdee - calories))
 }
 
 /** 创建餐食本地缓存 key。 */
@@ -123,8 +165,10 @@ function createMealSkipCacheKey(date: string, userId?: number) {
 }
 
 /** 创建推荐结果本地缓存 key。 */
-function createRecommendationCacheKey(date: string, userId?: number) {
-  return userId ? `training-user-${userId}-recommendation-v2-${date}` : `training-recommendation-v2-${date}`
+function createRecommendationCacheKey(date: string, planType: PlanType, userId?: number) {
+  return userId
+    ? `training-user-${userId}-${planType}-recommendation-v2-${date}`
+    : `training-${planType}-recommendation-v2-${date}`
 }
 
 /** 按推荐提示词顺序排序。 */
@@ -173,6 +217,7 @@ function App() {
   const [profileForm] = Form.useForm<Profile>()
   const [mealEntryForm] = Form.useForm<MealFormState>()
   const [cycleMacroForm] = Form.useForm<CycleMacroSettings>()
+  const [bulkingMacroForm] = Form.useForm<BulkingMacroSettings>()
   /** 全局消息提示实例。 */
   const [messageApi, messageContextHolder] = message.useMessage()
   const [activeRoute, setActiveRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
@@ -186,10 +231,14 @@ function App() {
   const [cycleMacroSettings, setCycleMacroSettingsState] = useState<CycleMacroSettings>(() =>
     normalizeCycleMacroSettings(readStoredState('training-cycle-macro-settings', defaultCycleMacroSettings)),
   )
+  const [bulkingMacroSettings, setBulkingMacroSettingsState] = useState<BulkingMacroSettings>(() =>
+    normalizeBulkingMacroSettings(readStoredState('training-bulking-macro-settings', defaultBulkingMacroSettings)),
+  )
   const [selectedDate, setSelectedDate] = useStoredState<string>('training-selected-date', getLocalDateString())
   const [entries, setEntriesState] = useState<MealEntry[]>([])
   const [skippedMeals, setSkippedMealsState] = useState<SkippedMeals>({})
   const [cycleType, setCycleType] = useStoredState<CycleType>('training-cycle', 'medium')
+  const [bulkingDayType, setBulkingDayType] = useStoredState<BulkingDayType>('training-bulking-day', 'training')
   const [mealForm, setMealForm] = useState(initialMealForm)
   const [recommendation, setRecommendationState] = useState<RecommendationState | null>(null)
   const [recommendationPrompts, setRecommendationPrompts] = useState<RecommendationPrompt[]>([])
@@ -198,6 +247,7 @@ function App() {
   const [isSavingRecommendationPrompt, setIsSavingRecommendationPrompt] = useState(false)
   const [profileSource, setProfileSource] = useState<ProfileSource>('loading')
   const [isCycleMacroModalOpen, setIsCycleMacroModalOpen] = useState(false)
+  const [isBulkingMacroModalOpen, setIsBulkingMacroModalOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isProfileCollapsed, setIsProfileCollapsed] = useState(false)
@@ -212,12 +262,23 @@ function App() {
   const [publicFoods, setPublicFoods] = useState<Food[]>([])
   const [isLoadingPublicFoods, setIsLoadingPublicFoods] = useState(false)
   const [importingFoodId, setImportingFoodId] = useState<string | null>(null)
+  /** 当前计划类型。 */
+  const activePlanType = getPlanTypeFromRoute(activeRoute)
+  /** 是否正在展示增肌计划。 */
+  const isBulkingPlan = activePlanType === 'bulking'
 
   /** 更新碳循环宏量配置并同步本地缓存。 */
   const setCycleMacroSettings = useCallback((nextSettings: CycleMacroSettings) => {
     const normalizedSettings = normalizeCycleMacroSettings(nextSettings)
     setCycleMacroSettingsState(normalizedSettings)
     localStorage.setItem('training-cycle-macro-settings', JSON.stringify(normalizedSettings))
+  }, [])
+
+  /** 更新增肌宏量配置并同步本地缓存。 */
+  const setBulkingMacroSettings = useCallback((nextSettings: BulkingMacroSettings) => {
+    const normalizedSettings = normalizeBulkingMacroSettings(nextSettings)
+    setBulkingMacroSettingsState(normalizedSettings)
+    localStorage.setItem('training-bulking-macro-settings', JSON.stringify(normalizedSettings))
   }, [])
 
   /** 更新当前日期餐食并同步本地缓存。 */
@@ -245,17 +306,30 @@ function App() {
     }
 
     if (nextRecommendation) {
-      localStorage.setItem(createRecommendationCacheKey(selectedDate, authUser.id), JSON.stringify(nextRecommendation))
+      localStorage.setItem(createRecommendationCacheKey(selectedDate, activePlanType, authUser.id), JSON.stringify(nextRecommendation))
       return
     }
 
-    localStorage.removeItem(createRecommendationCacheKey(selectedDate, authUser.id))
-  }, [authUser, selectedDate])
+    localStorage.removeItem(createRecommendationCacheKey(selectedDate, activePlanType, authUser.id))
+  }, [activePlanType, authUser, selectedDate])
 
-  const dailyPlan = useMemo(
-    () => calculateDailyPlan(profile, cycleType, cycleMacroSettings),
-    [cycleMacroSettings, cycleType, profile],
-  )
+  const dailyPlan = useMemo(() => (
+    isBulkingPlan
+      ? calculateBulkingDailyPlan(profile, bulkingDayType, bulkingMacroSettings)
+      : calculateDailyPlan(profile, cycleType, cycleMacroSettings)
+  ), [bulkingDayType, bulkingMacroSettings, cycleMacroSettings, cycleType, isBulkingPlan, profile])
+  /** 当前日型。 */
+  const dayType: PlanDayType = isBulkingPlan ? bulkingDayType : cycleType
+  /** 当前日型中文名称。 */
+  const dayLabels: Record<string, string> = isBulkingPlan ? bulkingDayLabels : cycleLabels
+  /** 当前日型顺序。 */
+  const dayTypes: PlanDayType[] = isBulkingPlan ? bulkingDayTypes : cycleTypes
+  /** 当前热量平衡标签。 */
+  const balanceLabel = isBulkingPlan ? '热量盈余' : '热量缺口'
+  /** 当前热量平衡数值。 */
+  const balanceValue = getCalorieBalance(activePlanType, dailyPlan.calories, dailyPlan.tdee)
+  /** 当前每公斤宏量摘要。 */
+  const macroSummary = createMacroSummary(profile, dailyPlan)
   const consumed = useMemo(() => calculateEntryTotals(entries, foods), [entries, foods])
   const remaining = useMemo(() => calculateRemaining(dailyPlan, consumed), [dailyPlan, consumed])
   const mealEntries = useMemo(() => groupEntriesByMeal(entries), [entries])
@@ -276,6 +350,8 @@ function App() {
     setIsCheckingProfile(false)
     setIsProfileInitialized(false)
     setCycleMacroSettings(defaultCycleMacroSettings)
+    setBulkingMacroSettings(defaultBulkingMacroSettings)
+    setBulkingDayType('training')
     setEntriesState([])
     setSkippedMealsState({})
     setRecommendationState(null)
@@ -284,7 +360,7 @@ function App() {
     setMealSource('loading')
     setFoodSource('loading')
     setMealForm(initialMealForm)
-  }, [setCycleMacroSettings, setProfile])
+  }, [setBulkingDayType, setBulkingMacroSettings, setCycleMacroSettings, setProfile])
 
   /** 处理登录成功响应。 */
   const applyAuthResponse = (response: AuthResponse) => {
@@ -293,7 +369,7 @@ function App() {
     setAuthToken(response.token)
     setAuthUser(response.user)
     window.history.replaceState(null, '', '/')
-    setActiveRoute('dashboard')
+    setActiveRoute('cutting')
     messageApi.success('登录成功')
   }
 
@@ -465,7 +541,7 @@ function App() {
     )
     const cachedSkippedMeals = readStoredState<SkippedMeals>(createMealSkipCacheKey(selectedDate, authUser.id), {})
     const cachedRecommendation = readStoredState<RecommendationState | null>(
-      createRecommendationCacheKey(selectedDate, authUser.id),
+      createRecommendationCacheKey(selectedDate, activePlanType, authUser.id),
       null,
     )
 
@@ -498,7 +574,7 @@ function App() {
     loadMealEntries()
 
     return () => controller.abort()
-  }, [authUser, isProfileInitialized, selectedDate])
+  }, [activePlanType, authUser, isProfileInitialized, selectedDate])
 
   useEffect(() => {
     if (!authUser || !isProfileInitialized) {
@@ -561,6 +637,25 @@ function App() {
     }
   }
 
+  /** 打开增肌宏量配置弹窗。 */
+  const openBulkingMacroModal = () => {
+    bulkingMacroForm.setFieldsValue(normalizeBulkingMacroSettings(bulkingMacroSettings))
+    setIsBulkingMacroModalOpen(true)
+  }
+
+  /** 关闭增肌宏量配置弹窗。 */
+  const closeBulkingMacroModal = () => {
+    setIsBulkingMacroModalOpen(false)
+    bulkingMacroForm.resetFields()
+  }
+
+  /** 提交增肌宏量配置。 */
+  const submitBulkingMacroForm = async () => {
+    const values = await bulkingMacroForm.validateFields()
+    setBulkingMacroSettings(normalizeBulkingMacroSettings(values))
+    closeBulkingMacroModal()
+  }
+
   /** 打开个人信息弹窗。 */
   const openProfileModal = () => {
     profileForm.setFieldsValue(profile)
@@ -616,7 +711,7 @@ function App() {
 
     if (saved) {
       window.history.replaceState(null, '', '/')
-      setActiveRoute('dashboard')
+      setActiveRoute('cutting')
     }
   }
 
@@ -889,7 +984,7 @@ function App() {
         signal: controller.signal,
         body: JSON.stringify({
           profile,
-          cycleType,
+          cycleType: dayType,
           customRequirement: customRequirement.trim(),
           dailyPlan,
           consumed,
@@ -1059,6 +1154,17 @@ function App() {
     setActiveRoute(route)
   }
 
+  /** 切换当前计划日型。 */
+  const changeDayType = (nextDayType: PlanDayType) => {
+    if (isBulkingPlan) {
+      setBulkingDayType(nextDayType as BulkingDayType)
+    } else {
+      setCycleType(nextDayType as CycleType)
+    }
+
+    setRecommendation(null)
+  }
+
   if (isCheckingAuth || !authUser) {
     return (
       <ConfigProvider locale={zhCN} theme={antdTheme}>
@@ -1089,7 +1195,7 @@ function App() {
       <main className={appShellClassName}>
         <header className="topbar">
           <div className="topbar-brand">
-            <p className="app-label">复古铁馆 · 碳循环 · 本地工具</p>
+            <p className="app-label">复古铁馆 · {planLabels[activePlanType]} · 本地工具</p>
             <h1>碳训计划</h1>
             <AppNav activeRoute={activeRoute} onNavigate={navigateRoute} />
           </div>
@@ -1104,7 +1210,7 @@ function App() {
                 }
               }}
             />
-            <StatusPill icon={<CalendarDays size={16} />} label={cycleLabels[cycleType]} />
+            <StatusPill icon={<CalendarDays size={16} />} label={dayLabels[dayType]} />
             <StatusPill icon={<Flame size={16} />} label={`${dailyPlan.calories} kcal`} />
           </div>
         </header>
@@ -1135,17 +1241,22 @@ function App() {
           />
         ) : (
           <DashboardPage
+            balanceLabel={balanceLabel}
+            balanceValue={balanceValue}
             consumed={consumed}
-            cycleMacroSettings={cycleMacroSettings}
-            cycleType={cycleType}
+            dayLabels={dayLabels}
+            dayType={dayType}
+            dayTypes={dayTypes}
             dailyPlan={dailyPlan}
             foods={foods}
             importingRecommendationMeal={importingRecommendationMeal}
             isRecommending={isRecommending}
             isSavingPrompt={isSavingRecommendationPrompt}
+            isSurplusBalance={isBulkingPlan}
             mealEntries={mealEntries}
             mealForm={mealForm}
             mealSource={mealSource}
+            macroSummary={macroSummary}
             orderedRecommendationRequirement={orderedRecommendationRequirement}
             recommendation={recommendation}
             recommendationPrompts={recommendationPrompts}
@@ -1153,8 +1264,8 @@ function App() {
             selectedDate={selectedDate}
             skippedMeals={skippedMeals}
             onAddMealEntry={addMealEntry}
-            onCycleTypeChange={setCycleType}
-            onEditCycleMacros={openCycleMacroModal}
+            onDayTypeChange={changeDayType}
+            onEditCycleMacros={isBulkingPlan ? openBulkingMacroModal : openCycleMacroModal}
             onEditMealEntry={openEditMealEntry}
             onImportRecommendation={importRecommendationByMeal}
             onMealFormChange={setMealForm}
@@ -1193,10 +1304,24 @@ function App() {
           onSubmit={submitMealEntryForm}
         />
         <CycleMacroModal
+          dayLabels={cycleLabels}
+          dayTypes={cycleTypes}
           form={cycleMacroForm}
+          initialValues={defaultCycleMacroSettings}
           open={isCycleMacroModalOpen}
+          title="编辑减脂目标"
           onCancel={closeCycleMacroModal}
           onSubmit={submitCycleMacroForm}
+        />
+        <CycleMacroModal
+          dayLabels={bulkingDayLabels}
+          dayTypes={bulkingDayTypes}
+          form={bulkingMacroForm}
+          initialValues={defaultBulkingMacroSettings}
+          open={isBulkingMacroModalOpen}
+          title="编辑增肌目标"
+          onCancel={closeBulkingMacroModal}
+          onSubmit={submitBulkingMacroForm}
         />
       </main>
     </ConfigProvider>

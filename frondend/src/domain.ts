@@ -4,6 +4,15 @@ export type Gender = 'male' | 'female'
 /** 碳循环日类型。 */
 export type CycleType = 'high' | 'medium' | 'low'
 
+/** 增肌日类型。 */
+export type BulkingDayType = 'training' | 'rest'
+
+/** 训练目标类型。 */
+export type PlanType = 'cutting' | 'bulking'
+
+/** 计划日类型。 */
+export type PlanDayType = CycleType | BulkingDayType
+
 /** 餐次类型。 */
 export type MealType = 'breakfast' | 'lunch' | 'preWorkout' | 'postWorkout' | 'dinner'
 
@@ -56,6 +65,9 @@ export interface CycleMacroSetting {
 /** 碳循环每公斤体重宏量配置。 */
 export type CycleMacroSettings = Record<CycleType, CycleMacroSetting>
 
+/** 增肌每公斤体重宏量配置。 */
+export type BulkingMacroSettings = Record<BulkingDayType, CycleMacroSetting>
+
 /** 计算后的每日目标。 */
 export interface DailyPlan extends NutritionTotals {
   bmr: number
@@ -91,11 +103,35 @@ export const cycleLabels: Record<CycleType, string> = {
   low: '低碳日',
 }
 
+/** 增肌日型中文名称。 */
+export const bulkingDayLabels: Record<BulkingDayType, string> = {
+  training: '训练日',
+  rest: '休息日',
+}
+
+/** 计划中文名称。 */
+export const planLabels: Record<PlanType, string> = {
+  cutting: '减脂计划',
+  bulking: '增肌计划',
+}
+
+/** 减脂日型顺序。 */
+export const cycleTypes: CycleType[] = ['high', 'medium', 'low']
+
+/** 增肌日型顺序。 */
+export const bulkingDayTypes: BulkingDayType[] = ['training', 'rest']
+
 /** 默认碳循环每公斤体重宏量配置。 */
 export const defaultCycleMacroSettings: CycleMacroSettings = {
   high: { carbsPerKg: 4.5, proteinPerKg: 2, fatPerKg: 0.6 },
   medium: { carbsPerKg: 3.3, proteinPerKg: 2, fatPerKg: 0.75 },
   low: { carbsPerKg: 1.5, proteinPerKg: 2, fatPerKg: 0.9 },
+}
+
+/** 默认增肌每公斤体重宏量配置。 */
+export const defaultBulkingMacroSettings: BulkingMacroSettings = {
+  training: { carbsPerKg: 5, proteinPerKg: 2, fatPerKg: 1 },
+  rest: { carbsPerKg: 4.7, proteinPerKg: 2, fatPerKg: 1 },
 }
 
 /** 合并碳循环宏量配置默认值。 */
@@ -104,6 +140,16 @@ export function normalizeCycleMacroSettings(settings?: Partial<Record<CycleType,
     high: { ...defaultCycleMacroSettings.high, ...settings?.high },
     medium: { ...defaultCycleMacroSettings.medium, ...settings?.medium },
     low: { ...defaultCycleMacroSettings.low, ...settings?.low },
+  }
+}
+
+/** 合并增肌宏量配置默认值。 */
+export function normalizeBulkingMacroSettings(
+  settings?: Partial<Record<BulkingDayType, Partial<CycleMacroSetting>>>,
+): BulkingMacroSettings {
+  return {
+    training: { ...defaultBulkingMacroSettings.training, ...settings?.training },
+    rest: { ...defaultBulkingMacroSettings.rest, ...settings?.rest },
   }
 }
 
@@ -175,12 +221,7 @@ export function calculateDailyPlan(
   cycleType: CycleType,
   macroSettings: CycleMacroSettings = defaultCycleMacroSettings,
 ): DailyPlan {
-  const genderOffset = profile.gender === 'male' ? 5 : -161
-  const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + genderOffset
-  const tdee = bmr * profile.activityLevel
-  const leanMass = profile.weight * (1 - profile.bodyFat / 100)
-  const targetWeight = leanMass / (1 - profile.targetBodyFat / 100)
-  const fatToLose = Math.max(0, profile.weight - targetWeight)
+  const metrics = calculateProfileMetrics(profile)
   const setting = macroSettings[cycleType]
   const protein = profile.weight * setting.proteinPerKg
   const carbs = profile.weight * setting.carbsPerKg
@@ -188,15 +229,52 @@ export function calculateDailyPlan(
   const calories = carbs * 4 + protein * 4 + fat * 9
 
   return {
-    bmr: Math.round(bmr),
-    tdee: Math.round(tdee),
+    bmr: Math.round(metrics.bmr),
+    tdee: Math.round(metrics.tdee),
     calories: Math.round(calories),
     protein: Math.round(protein),
     carbs: Math.round(carbs),
     fat: Math.round(fat),
-    targetWeight: roundOne(targetWeight),
-    fatToLose: roundOne(fatToLose),
+    targetWeight: roundOne(metrics.targetWeight),
+    fatToLose: roundOne(metrics.fatToLose),
   }
+}
+
+/** 根据个人信息和增肌日型计算每日目标。 */
+export function calculateBulkingDailyPlan(
+  profile: Profile,
+  dayType: BulkingDayType,
+  macroSettings: BulkingMacroSettings = defaultBulkingMacroSettings,
+): DailyPlan {
+  const metrics = calculateProfileMetrics(profile)
+  const setting = macroSettings[dayType]
+  const protein = profile.weight * setting.proteinPerKg
+  const carbs = profile.weight * setting.carbsPerKg
+  const fat = profile.weight * setting.fatPerKg
+  const calories = carbs * 4 + protein * 4 + fat * 9
+
+  return {
+    bmr: Math.round(metrics.bmr),
+    tdee: Math.round(metrics.tdee),
+    calories: Math.round(calories),
+    protein: Math.round(protein),
+    carbs: Math.round(carbs),
+    fat: Math.round(fat),
+    targetWeight: roundOne(metrics.targetWeight),
+    fatToLose: roundOne(metrics.fatToLose),
+  }
+}
+
+/** 计算个人基础代谢和体重目标指标。 */
+function calculateProfileMetrics(profile: Profile) {
+  const genderOffset = profile.gender === 'male' ? 5 : -161
+  const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + genderOffset
+  const tdee = bmr * profile.activityLevel
+  const leanMass = profile.weight * (1 - profile.bodyFat / 100)
+  const targetWeight = leanMass / (1 - profile.targetBodyFat / 100)
+  const fatToLose = Math.max(0, profile.weight - targetWeight)
+
+  return { bmr, tdee, targetWeight, fatToLose }
 }
 
 /** 计算餐食记录的营养合计。 */

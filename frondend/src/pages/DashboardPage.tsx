@@ -2,13 +2,12 @@ import { RecommendationPanel } from '../components/RecommendationPanel'
 import { TargetPanel } from '../components/TargetPanel'
 import { MealPanel } from '../components/MealPanel'
 import type {
-  CycleMacroSettings,
-  CycleType,
   DailyPlan,
   Food,
   MealEntry,
   MealType,
   NutritionTotals,
+  PlanDayType,
 } from '../domain'
 import type {
   MealDraftFormState,
@@ -19,19 +18,24 @@ import type {
   SkippedMeals,
 } from '../types'
 
-/** 今日计划页属性。 */
+/** 训练计划页属性。 */
 interface DashboardPageProps {
+  balanceLabel: string
+  balanceValue: number
   consumed: NutritionTotals
-  cycleMacroSettings: CycleMacroSettings
-  cycleType: CycleType
+  dayLabels: Record<string, string>
+  dayType: PlanDayType
+  dayTypes: PlanDayType[]
   dailyPlan: DailyPlan
   foods: Food[]
   importingRecommendationMeal: MealType | null
   isRecommending: boolean
   isSavingPrompt: boolean
+  isSurplusBalance: boolean
   mealEntries: Partial<Record<MealType, MealEntry[]>>
   mealForm: MealDraftFormState
   mealSource: MealSource
+  macroSummary: string
   orderedRecommendationRequirement: string
   recommendation: RecommendationState | null
   recommendationPrompts: RecommendationPrompt[]
@@ -39,7 +43,7 @@ interface DashboardPageProps {
   selectedDate: string
   skippedMeals: SkippedMeals
   onAddMealEntry: () => void | Promise<void>
-  onCycleTypeChange: (cycleType: CycleType) => void
+  onDayTypeChange: (dayType: PlanDayType) => void
   onEditCycleMacros: () => void
   onEditMealEntry: (entry: MealEntry) => void
   onImportRecommendation: (meal: MealType) => void
@@ -54,19 +58,24 @@ interface DashboardPageProps {
   onSkipMeal: (meal: MealType) => void
 }
 
-/** 今日计划页面。 */
+/** 训练计划页面。 */
 export function DashboardPage({
+  balanceLabel,
+  balanceValue,
   consumed,
-  cycleMacroSettings,
-  cycleType,
+  dayLabels,
+  dayType,
+  dayTypes,
   dailyPlan,
   foods,
   importingRecommendationMeal,
   isRecommending,
   isSavingPrompt,
+  isSurplusBalance,
   mealEntries,
   mealForm,
   mealSource,
+  macroSummary,
   orderedRecommendationRequirement,
   recommendation,
   recommendationPrompts,
@@ -74,7 +83,7 @@ export function DashboardPage({
   selectedDate,
   skippedMeals,
   onAddMealEntry,
-  onCycleTypeChange,
+  onDayTypeChange,
   onEditCycleMacros,
   onEditMealEntry,
   onImportRecommendation,
@@ -91,12 +100,17 @@ export function DashboardPage({
   return (
     <section className="dashboard-grid">
       <TargetPanel
+        balanceLabel={balanceLabel}
+        balanceValue={balanceValue}
         consumed={consumed}
-        cycleMacroSettings={cycleMacroSettings}
-        cycleType={cycleType}
+        dayLabels={dayLabels}
+        dayType={dayType}
+        dayTypes={dayTypes}
         dailyPlan={dailyPlan}
+        isSurplusBalance={isSurplusBalance}
+        macroSummary={macroSummary}
         onEditCycleMacros={onEditCycleMacros}
-        onCycleTypeChange={onCycleTypeChange}
+        onDayTypeChange={onDayTypeChange}
       />
       <RecommendationPanel
         importingRecommendationMeal={importingRecommendationMeal}

@@ -1,8 +1,7 @@
 import { Button, Tooltip } from 'antd'
-import { Activity, ArrowDown, CircleHelp, SlidersHorizontal } from 'lucide-react'
+import { Activity, ArrowDown, ArrowUp, CircleHelp, SlidersHorizontal } from 'lucide-react'
 import { macroFields } from '../config'
-import { cycleLabels } from '../domain'
-import type { CycleMacroSettings, CycleType, DailyPlan, NutritionTotals } from '../domain'
+import type { DailyPlan, NutritionTotals, PlanDayType } from '../domain'
 import { MacroBar, SectionTitle } from './Common'
 
 /** 热量术语说明文案。 */
@@ -34,38 +33,44 @@ function CalorieReadout({ label, tip, value, unit }: { label: string; tip?: stri
 
 /** 今日目标热量面板组件。 */
 export function TargetPanel({
+  balanceLabel,
+  balanceValue,
   consumed,
-  cycleMacroSettings,
-  cycleType,
+  dayLabels,
+  dayType,
+  dayTypes,
   dailyPlan,
+  isSurplusBalance,
+  macroSummary,
   onEditCycleMacros,
-  onCycleTypeChange,
+  onDayTypeChange,
 }: {
+  balanceLabel: string
+  balanceValue: number
   consumed: NutritionTotals
-  cycleMacroSettings: CycleMacroSettings
-  cycleType: CycleType
+  dayLabels: Record<string, string>
+  dayType: PlanDayType
+  dayTypes: PlanDayType[]
   dailyPlan: DailyPlan
+  isSurplusBalance: boolean
+  macroSummary: string
   onEditCycleMacros: () => void
-  onCycleTypeChange: (type: CycleType) => void
+  onDayTypeChange: (type: PlanDayType) => void
 }) {
-  const currentSetting = cycleMacroSettings[cycleType]
-  /** 热量缺口数值。 */
-  const calorieDeficit = Math.max(0, Math.round(dailyPlan.tdee - dailyPlan.calories))
-
   return (
     <section className="panel target-panel">
       <div className="section-header">
         <SectionTitle icon={<Activity size={18} />} title="今日热量表" />
         <div className="cycle-tools">
           <div className="cycle-switch">
-            {(Object.keys(cycleLabels) as CycleType[]).map((type) => (
+            {dayTypes.map((type) => (
               <button
                 key={type}
                 type="button"
-                className={cycleType === type ? 'is-active' : ''}
-                onClick={() => onCycleTypeChange(type)}
+                className={dayType === type ? 'is-active' : ''}
+                onClick={() => onDayTypeChange(type)}
               >
-                {cycleLabels[type]}
+                {dayLabels[type]}
               </button>
             ))}
           </div>
@@ -75,7 +80,7 @@ export function TargetPanel({
         </div>
       </div>
       <p className="muted-text cycle-macro-summary">
-        每公斤体重：碳水 {currentSetting.carbsPerKg}g · 蛋白 {currentSetting.proteinPerKg}g · 脂肪 {currentSetting.fatPerKg}g
+        {macroSummary}
       </p>
       <div className="calorie-strip">
         <div className="calorie-support">
@@ -88,10 +93,10 @@ export function TargetPanel({
           <i aria-hidden="true" />
           <small>kcal</small>
         </div>
-        <div className="calorie-deficit">
-          <span>热量缺口</span>
-          <strong>{calorieDeficit}</strong>
-          <ArrowDown size={34} strokeWidth={2.6} />
+        <div className={isSurplusBalance ? 'calorie-deficit is-surplus' : 'calorie-deficit'}>
+          <span>{balanceLabel}</span>
+          <strong>{balanceValue}</strong>
+          {isSurplusBalance ? <ArrowUp size={34} strokeWidth={2.6} /> : <ArrowDown size={34} strokeWidth={2.6} />}
           <small>kcal</small>
         </div>
       </div>

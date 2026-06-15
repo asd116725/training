@@ -33,6 +33,12 @@ public class NutritionService {
     /** 低碳日热量偏移。 */
     private static final double LOW_CALORIE_OFFSET = -650;
 
+    /** 增肌训练日每公斤碳水。 */
+    private static final double BULKING_TRAINING_CARBS_PER_KG = 5;
+
+    /** 增肌休息日每公斤碳水。 */
+    private static final double BULKING_REST_CARBS_PER_KG = 4.7;
+
     /** 餐次顺序。 */
     private static final List<String> MEAL_TYPES = List.of("breakfast", "lunch", "preWorkout", "postWorkout", "dinner");
 
@@ -144,6 +150,12 @@ public class NutritionService {
         if ("low".equalsIgnoreCase(value) || "LOW".equalsIgnoreCase(value)) {
             return CycleType.LOW;
         }
+        if ("training".equalsIgnoreCase(value) || "TRAINING".equalsIgnoreCase(value)) {
+            return CycleType.TRAINING;
+        }
+        if ("rest".equalsIgnoreCase(value) || "REST".equalsIgnoreCase(value)) {
+            return CycleType.REST;
+        }
         return CycleType.MEDIUM;
     }
 
@@ -159,7 +171,10 @@ public class NutritionService {
         double calories = Math.max(1300, tdee + calorieOffset(cycleType));
         double protein = weight * 2;
         double fat = weight * fatPerKg(cycleType);
-        double carbs = Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+        double carbs = isBulkingType(cycleType)
+                ? weight * carbsPerKg(cycleType)
+                : Math.max(0, (calories - protein * 4 - fat * 9) / 4);
+        calories = isBulkingType(cycleType) ? carbs * 4 + protein * 4 + fat * 9 : calories;
 
         return new DailyPlan(Math.round(bmr), Math.round(tdee), Math.round(calories), Math.round(protein),
                 Math.round(carbs), Math.round(fat), roundOne(targetWeight), roundOne(fatToLose));
@@ -181,11 +196,26 @@ public class NutritionService {
         };
     }
 
+    /** 判断是否为增肌日型。 */
+    private boolean isBulkingType(CycleType cycleType) {
+        return cycleType == CycleType.TRAINING || cycleType == CycleType.REST;
+    }
+
+    /** 获取每公斤碳水克数。 */
+    private double carbsPerKg(CycleType cycleType) {
+        return switch (cycleType) {
+            case TRAINING -> BULKING_TRAINING_CARBS_PER_KG;
+            case REST -> BULKING_REST_CARBS_PER_KG;
+            default -> 0;
+        };
+    }
+
     /** 获取每公斤脂肪克数。 */
     private double fatPerKg(CycleType cycleType) {
         return switch (cycleType) {
             case HIGH -> 0.62;
             case LOW -> 0.9;
+            case TRAINING, REST -> 1;
             default -> 0.75;
         };
     }

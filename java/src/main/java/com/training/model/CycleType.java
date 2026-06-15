@@ -9,5 +9,11 @@ public enum CycleType {
     MEDIUM,
 
     /** 低碳日。 */
-    LOW
+    LOW,
+
+    /** 增肌训练日。 */
+    TRAINING,
+
+    /** 增肌休息日。 */
+    REST
 }

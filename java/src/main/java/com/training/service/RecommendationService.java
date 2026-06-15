@@ -141,7 +141,7 @@ public class RecommendationService {
     /** DeepSeek 系统提示词。 */
     private String systemPrompt() {
         return """
-                你是力量训练减脂饮食助手。根据用户剩余热量、蛋白质、碳水、脂肪缺口和食材库，推荐未完成餐次的食材与克数。
+                你是力量训练饮食助手。根据用户剩余热量、蛋白质、碳水、脂肪缺口和食材库，推荐未完成餐次的食材与克数。
                 这是严格 JSON 生成任务，不是聊天任务。
                 targetMeals 是本次必须补全的餐次清单，是最高优先级约束。
                 items 必须覆盖 targetMeals 中的每一个餐次，每个餐次至少 1 条，建议每餐 1-4 条。
