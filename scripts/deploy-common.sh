@@ -4,6 +4,28 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# /** 加载本地 .env 配置，已存在的环境变量优先。 */
+load_env_file() {
+  local env_file="${PROJECT_ROOT}/.env"
+  local line name value
+
+  [[ -f "${env_file}" ]] || return
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ "${line}" =~ ^[[:space:]]*$|^[[:space:]]*# ]] && continue
+    name="${line%%=*}"
+    value="${line#*=}"
+
+    [[ "${name}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    [[ -z "${!name:-}" ]] || continue
+
+    printf -v "${name}" '%s' "${value}"
+    export "${name}"
+  done < "${env_file}"
+}
+
+load_env_file
+
 # /** 部署服务器公网 IP。 */
 DEPLOY_HOST="${DEPLOY_HOST:-}"
 
