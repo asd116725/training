@@ -6,6 +6,7 @@
 
 ```text
 .
+├── CHANGELOG.md
 ├── PROJECT_PLAN.md
 ├── README.md
 ├── frondend/

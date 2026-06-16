@@ -19,7 +19,7 @@ const foodNutritionFields: Array<{
   { label: '碳水', mark: 'C', message: '请输入碳水', name: 'carbs', note: '主能量来源', precision: 1, unit: 'g' },
   { label: '蛋白', mark: 'P', message: '请输入蛋白', name: 'protein', note: '肌肉修复', precision: 1, unit: 'g' },
   { label: '脂肪', mark: 'F', message: '请输入脂肪', name: 'fat', note: '控制总摄入', precision: 1, unit: 'g' },
-  { label: '热量', mark: 'K', message: '请输入热量', name: 'calories', note: '用于剩余热量计算', precision: 0, unit: 'kcal' },
+  { label: '热量', mark: 'K', message: '请输入热量', name: 'calories', note: '营养标签参考', precision: 0, unit: 'kcal' },
 ]
 
 /** 食材字段标签属性。 */

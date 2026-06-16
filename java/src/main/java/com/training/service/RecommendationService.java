@@ -148,8 +148,8 @@ public class RecommendationService {
                 items 中的 meal 必须且只能来自 targetMeals，不要给 targetMeals 之外的餐次推荐，也不要给 skippedMeals 中值为 true 的餐次推荐。
                 如果 customRequirement 不为空，优先满足用户本次自由输入的推荐要求。
                 foodName 必须使用 foods 中已有的食材名称，避免推荐无法导入食材库的食物。
-                foods 中 protein、carbs、fat、calories 是每 100g 营养，unitWeight 只表示一个单位对应克重。
-                每条 calories、protein、carbs、fat 必须按 grams / 100 * food 每 100g 营养换算。
+                foods 中 protein、carbs、fat 是每 100g 营养，calories 是食材库参考值，unitWeight 只表示一个单位对应克重。
+                每条 protein、carbs、fat 必须按 grams / 100 * food 每 100g 营养换算，calories 必须按 protein*4 + carbs*4 + fat*9 换算。
                 只返回 JSON 对象，不要 Markdown，不要解释。格式为：
                 {"source":"deepseek","summary":"一句中文摘要","items":[{"meal":"preWorkout","foodName":"米饭","grams":120,"calories":139,"protein":3.1,"carbs":31.1,"fat":0.4}]}
                 meal 只能使用 breakfast、lunch、preWorkout、postWorkout、dinner。

@@ -57,15 +57,19 @@ public class NutritionService {
     /** 计算食材营养。 */
     public NutritionTotals calculateFoodNutrition(Food food, double grams) {
         double ratio = grams / 100;
-        return new NutritionTotals(roundOne(food.calories * ratio), roundOne(food.protein * ratio),
-                roundOne(food.carbs * ratio), roundOne(food.fat * ratio));
+        double protein = roundOne(food.protein * ratio);
+        double carbs = roundOne(food.carbs * ratio);
+        double fat = roundOne(food.fat * ratio);
+        return new NutritionTotals(calculateMacroCalories(protein, carbs, fat), protein, carbs, fat);
     }
 
     /** 计算食材快照营养。 */
     public NutritionTotals calculateFoodNutrition(FoodSnapshot food, double grams) {
         double ratio = grams / 100;
-        return new NutritionTotals(roundOne(food.calories() * ratio), roundOne(food.protein() * ratio),
-                roundOne(food.carbs() * ratio), roundOne(food.fat() * ratio));
+        double protein = roundOne(food.protein() * ratio);
+        double carbs = roundOne(food.carbs() * ratio);
+        double fat = roundOne(food.fat() * ratio);
+        return new NutritionTotals(calculateMacroCalories(protein, carbs, fat), protein, carbs, fat);
     }
 
     /** 汇总餐食明细营养。 */
@@ -188,9 +192,15 @@ public class NutritionService {
 
     /** 汇总两个营养素对象。 */
     private NutritionTotals sum(NutritionTotals left, NutritionTotals right) {
-        return new NutritionTotals(roundOne(left.calories() + right.calories()),
-                roundOne(left.protein() + right.protein()), roundOne(left.carbs() + right.carbs()),
-                roundOne(left.fat() + right.fat()));
+        double protein = roundOne(left.protein() + right.protein());
+        double carbs = roundOne(left.carbs() + right.carbs());
+        double fat = roundOne(left.fat() + right.fat());
+        return new NutritionTotals(calculateMacroCalories(protein, carbs, fat), protein, carbs, fat);
+    }
+
+    /** 按宏量营养素换算热量。 */
+    private double calculateMacroCalories(double protein, double carbs, double fat) {
+        return roundOne(protein * 4 + carbs * 4 + fat * 9);
     }
 
     /** 获取热量偏移。 */

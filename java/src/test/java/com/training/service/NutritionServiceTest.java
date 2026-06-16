@@ -76,10 +76,20 @@ class NutritionServiceTest {
 
         NutritionTotals nutrition = nutritionService.calculateFoodNutrition(milk, 400);
 
-        assertEquals(280, nutrition.calories());
+        assertEquals(281.6, nutrition.calories());
         assertEquals(14.4, nutrition.protein());
         assertEquals(20, nutrition.carbs());
         assertEquals(16, nutrition.fat());
+    }
+
+    /** 验证已吃热量按宏量营养素统一换算。 */
+    @Test
+    void shouldCalculateConsumedCaloriesFromMacros() {
+        Food food = new Food(new AppUser("13800000000", "hash"), "测试食材", "克", 1, 10, 20, 5, 999);
+
+        NutritionTotals nutrition = nutritionService.calculateFoodNutrition(food, 100);
+
+        assertEquals(165, nutrition.calories());
     }
 
     /** 验证规则推荐生成。 */

@@ -203,6 +203,11 @@ export const createId = () => crypto.randomUUID()
 /** 保留一位小数。 */
 export const roundOne = (value: number) => Math.round(value * 10) / 10
 
+/** 按宏量营养素换算热量。 */
+export function calculateMacroCalories(protein: number, carbs: number, fat: number) {
+  return roundOne(protein * 4 + carbs * 4 + fat * 9)
+}
+
 /** 按数量计算食材克重。 */
 export function calculateFoodGrams(food: Food, quantity: number) {
   return roundOne(quantity * food.unitWeight)
@@ -221,24 +226,33 @@ export function normalizeFoodUnitWeight(unitWeight?: number) {
 /** 按克数计算单个食材营养。 */
 export function calculateFoodNutrition(food: Food, grams: number): NutritionTotals {
   const ratio = grams / 100
+  const protein = roundOne(food.protein * ratio)
+  const carbs = roundOne(food.carbs * ratio)
+  const fat = roundOne(food.fat * ratio)
 
   return {
-    calories: roundOne(food.calories * ratio),
-    protein: roundOne(food.protein * ratio),
-    carbs: roundOne(food.carbs * ratio),
-    fat: roundOne(food.fat * ratio),
+    calories: calculateMacroCalories(protein, carbs, fat),
+    protein,
+    carbs,
+    fat,
   }
 }
 
 /** 汇总一组营养素。 */
 export function sumNutrition(items: NutritionTotals[]): NutritionTotals {
   return items.reduce<NutritionTotals>(
-    (total, item) => ({
-      calories: roundOne(total.calories + item.calories),
-      protein: roundOne(total.protein + item.protein),
-      carbs: roundOne(total.carbs + item.carbs),
-      fat: roundOne(total.fat + item.fat),
-    }),
+    (total, item) => {
+      const protein = roundOne(total.protein + item.protein)
+      const carbs = roundOne(total.carbs + item.carbs)
+      const fat = roundOne(total.fat + item.fat)
+
+      return {
+        calories: calculateMacroCalories(protein, carbs, fat),
+        protein,
+        carbs,
+        fat,
+      }
+    },
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
 }

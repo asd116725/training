@@ -120,7 +120,7 @@ class MealLogServiceTest {
         assertEquals(2, response.quantity());
         assertEquals("瓶", response.unitName());
         assertEquals(400, response.grams());
-        assertEquals(280, response.calories());
+        assertEquals(281.6, response.calories());
         assertEquals(14.4, response.protein());
     }
 
