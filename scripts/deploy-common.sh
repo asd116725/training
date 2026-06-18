@@ -198,12 +198,35 @@ mv '${remote_new_dir}' '${REMOTE_WEB_DIR}'
 systemctl reload nginx"
 }
 
+# /** 查找最新生成的后端可执行 Jar。 */
+find_backend_jar() {
+  local latest_jar=""
+  local jar
+
+  for jar in "${BACKEND_DIR}"/target/*.jar; do
+    [[ -e "${jar}" ]] || continue
+    [[ "${jar}" == *.original ]] && continue
+
+    if [[ -z "${latest_jar}" || "${jar}" -nt "${latest_jar}" ]]; then
+      latest_jar="${jar}"
+    fi
+  done
+
+  if [[ -z "${latest_jar}" ]]; then
+    printf '未找到后端 Jar，请先执行打包。\n' >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${latest_jar}"
+}
+
 # /** 部署已构建的后端 Jar。 */
 deploy_backend_artifact() {
-  local local_jar="${BACKEND_DIR}/target/training-0.0.1-SNAPSHOT.jar"
+  local local_jar
   local remote_new_jar="${REMOTE_TMP_DIR}/training-${DEPLOY_TIMESTAMP}.jar"
   local remote_backup_jar="${REMOTE_RELEASE_DIR}/training-${DEPLOY_TIMESTAMP}.jar"
 
+  local_jar="$(find_backend_jar)"
   prepare_remote_tmp_dir
 
   log "上传后端 Jar 到 ${REMOTE_BACKEND_JAR}"
