@@ -20,6 +20,7 @@ import com.training.dto.ApiDtos.MealDayTypeRequest;
 import com.training.dto.ApiDtos.MealEntryBatchRequest;
 import com.training.dto.ApiDtos.MealEntryRequest;
 import com.training.dto.ApiDtos.MealEntryResponse;
+import com.training.dto.ApiDtos.MealFoodUsageResponse;
 import com.training.service.MealLogService;
 
 import jakarta.validation.Valid;
@@ -44,6 +45,12 @@ public class MealLogController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return mealLogService.listByDate(date == null ? LocalDate.now() : date);
+    }
+
+    /** 查询食材历史使用次数。 */
+    @GetMapping("/food-usage")
+    public List<MealFoodUsageResponse> listFoodUsage() {
+        return mealLogService.listFoodUsage();
     }
 
     /** 新增餐食明细。 */

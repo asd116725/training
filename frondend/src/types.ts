@@ -86,6 +86,9 @@ export type ProfileSource = 'loading' | 'api' | 'local'
 /** 餐食记录来源状态。 */
 export type MealSource = 'loading' | 'api' | 'local'
 
+/** 食材使用次数索引。 */
+export type FoodUsageCounts = Record<string, number>
+
 /** 单日餐食状态。 */
 export interface MealDayState {
   entries: MealEntry[]

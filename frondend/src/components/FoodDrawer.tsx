@@ -2,6 +2,7 @@ import { AutoComplete, Button, Drawer, Form, Input, InputNumber } from 'antd'
 import type { FormInstance, InputNumberProps } from 'antd'
 import { Check, Table2, X } from 'lucide-react'
 import type { ChangeEventHandler } from 'react'
+import { useEffect, useState } from 'react'
 import { defaultFoodForm } from '../config'
 import { foodUnitNames } from '../domain'
 import type { FoodEditorMode, FoodFormDraftValues } from '../types'
@@ -21,6 +22,33 @@ const foodNutritionFields: Array<{
   { label: '脂肪', mark: 'F', message: '请输入脂肪', name: 'fat', note: '控制总摄入', precision: 1, unit: 'g' },
   { label: '热量', mark: 'K', message: '请输入热量', name: 'calories', note: '营养标签参考', precision: 0, unit: 'kcal' },
 ]
+
+/** 热量录入单位。 */
+type CalorieUnit = 'kcal' | 'kJ'
+
+/** 千焦与大卡换算系数。 */
+const kjPerKcal = 4.184
+
+/** 热量单位切换选项。 */
+const calorieUnitOptions: Array<{ label: CalorieUnit; value: CalorieUnit }> = [
+  { label: 'kcal', value: 'kcal' },
+  { label: 'kJ', value: 'kJ' },
+]
+
+/** 大卡换算为千焦。 */
+function convertKcalToKj(kcal: number): number {
+  return kcal * kjPerKcal
+}
+
+/** 千焦换算为大卡。 */
+function convertKjToKcal(kj: number): number {
+  return kj / kjPerKcal
+}
+
+/** 统一热量输入展示精度。 */
+function roundCalorieInput(value: number): number {
+  return Math.round(value)
+}
 
 /** 食材字段标签属性。 */
 interface FoodFieldLabelProps {
@@ -46,6 +74,12 @@ interface FoodNumberInputProps {
   onChange?: InputNumberProps['onChange']
 }
 
+/** 食材热量输入属性。 */
+interface FoodCalorieInputProps extends FoodNumberInputProps {
+  calorieUnit: CalorieUnit
+  onCalorieUnitChange: (unit: CalorieUnit) => void
+}
+
 /** 食材单位选项。 */
 const foodUnitOptions = foodUnitNames.map((unitName) => ({ label: unitName, value: unitName }))
 
@@ -63,7 +97,7 @@ export function FoodDrawer({
   open: boolean
   saving: boolean
   onCancel: () => void
-  onSubmit: () => void
+  onSubmit: () => Promise<void> | void
 }) {
   /** 当前抽屉标题。 */
   const drawerTitle = mode === 'edit' ? '编辑食材' : '添加食材'
@@ -73,6 +107,14 @@ export function FoodDrawer({
   const unitName = Form.useWatch('unitName', form) ?? form.getFieldValue('unitName') ?? '克'
   /** 当前单位重量。 */
   const unitWeight = Number(Form.useWatch('unitWeight', form) ?? form.getFieldValue('unitWeight') ?? 1)
+  /** 当前热量录入单位。 */
+  const [calorieUnit, setCalorieUnit] = useState<CalorieUnit>('kcal')
+
+  useEffect(() => {
+    if (open) {
+      setCalorieUnit('kcal')
+    }
+  }, [open])
 
   /** 切换食材单位。 */
   const changeFoodUnit = (nextUnitName: string) => {
@@ -92,6 +134,38 @@ export function FoodDrawer({
     })
   }
 
+  /** 切换热量单位并同步展示值。 */
+  const changeCalorieUnit = (nextUnit: CalorieUnit) => {
+    const currentCalorie = form.getFieldValue('calories')
+
+    if (typeof currentCalorie === 'number') {
+      form.setFieldsValue({
+        calories: roundCalorieInput(
+          nextUnit === 'kJ' ? convertKcalToKj(currentCalorie) : convertKjToKcal(currentCalorie),
+        ),
+      })
+    }
+
+    setCalorieUnit(nextUnit)
+  }
+
+  /** 提交前把热量统一转换为大卡。 */
+  const submitFood = async () => {
+    await form.validateFields()
+
+    if (calorieUnit === 'kJ') {
+      const currentCalorie = form.getFieldValue('calories')
+
+      if (typeof currentCalorie === 'number') {
+        form.setFieldsValue({ calories: roundCalorieInput(convertKjToKcal(currentCalorie)) })
+      }
+
+      setCalorieUnit('kcal')
+    }
+
+    await onSubmit()
+  }
+
   return (
     <Drawer
       className="food-drawer"
@@ -103,7 +177,7 @@ export function FoodDrawer({
             <Button className="food-editor-cancel" onClick={onCancel}>
               取消
             </Button>
-            <Button className="food-editor-save" icon={<Check size={16} />} loading={saving} type="primary" onClick={onSubmit}>
+            <Button className="food-editor-save" icon={<Check size={16} />} loading={saving} type="primary" onClick={submitFood}>
               {submitText}
             </Button>
           </div>
@@ -166,11 +240,21 @@ export function FoodDrawer({
                 name={field.name}
                 rules={[{ required: true, message: field.message }]}
               >
-                <FoodNumberInput
-                  mark={field.mark}
-                  precision={field.precision}
-                  unit={field.unit}
-                />
+                {field.name === 'calories' ? (
+                  <FoodCalorieInput
+                    calorieUnit={calorieUnit}
+                    mark={field.mark}
+                    precision={field.precision}
+                    unit={calorieUnit}
+                    onCalorieUnitChange={changeCalorieUnit}
+                  />
+                ) : (
+                  <FoodNumberInput
+                    mark={field.mark}
+                    precision={field.precision}
+                    unit={field.unit}
+                  />
+                )}
               </Form.Item>
               <span className="food-editor-note">
                 <i />
@@ -225,6 +309,50 @@ function FoodNumberInput({ id, mark, onChange, precision, unit, value }: FoodNum
       <span className="food-editor-input-mark">{mark}</span>
       <InputNumber controls={false} id={id} min={0} precision={precision} value={value} onChange={onChange} />
       <span className="food-editor-unit-addon">{unit}</span>
+    </div>
+  )
+}
+
+/** 食材热量输入组件。 */
+function FoodCalorieInput({
+  calorieUnit,
+  id,
+  mark,
+  onCalorieUnitChange,
+  onChange,
+  value,
+}: FoodCalorieInputProps) {
+  /** 同步原生热量输入。 */
+  const changeCalorieValue: ChangeEventHandler<HTMLInputElement> = (event) => {
+    const nextValue = event.target.value
+    onChange?.(nextValue === '' ? null : Number(nextValue))
+  }
+
+  return (
+    <div className="food-editor-input-shell food-editor-number-input food-editor-calorie-input">
+      <span className="food-editor-input-mark">{mark}</span>
+      <input
+        className="food-editor-calorie-number-input"
+        id={id}
+        inputMode="numeric"
+        min={0}
+        type="number"
+        value={value ?? ''}
+        onChange={changeCalorieValue}
+      />
+      <span className="food-editor-calorie-switch">
+        {calorieUnitOptions.map((option) => (
+          <button
+            aria-pressed={calorieUnit === option.value}
+            className={`food-editor-calorie-unit-button${calorieUnit === option.value ? ' is-active' : ''}`}
+            key={option.value}
+            type="button"
+            onClick={() => onCalorieUnitChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </span>
     </div>
   )
 }

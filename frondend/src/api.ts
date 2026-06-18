@@ -18,6 +18,7 @@ import type {
   AuthLoginValues,
   AuthRegisterValues,
   AuthResponse,
+  FoodUsageCounts,
   MealFormState,
   FoodFormValues,
   MealDayState,
@@ -109,6 +110,12 @@ interface MealEntryResponse {
   protein: number
   carbs: number
   fat: number
+}
+
+/** 后端食材使用次数响应。 */
+interface MealFoodUsageResponse {
+  foodId: number
+  count: number
 }
 
 /** 后端单日餐食响应。 */
@@ -453,6 +460,21 @@ export async function saveCycleMacroSettings(settings: CycleMacroSettings): Prom
 export async function fetchMealDayState(date: string, signal?: AbortSignal): Promise<MealDayState> {
   const response = await requestApi(`/api/meals?date=${encodeURIComponent(date)}`, { signal })
   return normalizeMealDayState((await response.json()) as MealDayResponse)
+}
+
+/**
+ * 查询食材历史使用次数。
+ * @param signal 请求取消信号。
+ * @returns 食材使用次数索引。
+ */
+export async function fetchMealFoodUsage(signal?: AbortSignal): Promise<FoodUsageCounts> {
+  const response = await requestApi('/api/meals/food-usage', { signal })
+  const usages = (await response.json()) as MealFoodUsageResponse[]
+
+  return usages.reduce<FoodUsageCounts>((counts, usage) => {
+    counts[String(usage.foodId)] = usage.count
+    return counts
+  }, {})
 }
 
 /** 新增餐食明细。 */

@@ -151,6 +151,10 @@ public final class ApiDtos {
             double fat) {
     }
 
+    /** 食材历史使用次数响应。 */
+    public record MealFoodUsageResponse(Long foodId, long count) {
+    }
+
     /** 营养素合计。 */
     public record NutritionTotals(double calories, double protein, double carbs, double fat) {
     }

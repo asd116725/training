@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { ConfigProvider, DatePicker, Form, message } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
-import { CalendarDays, Flame } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Flame } from 'lucide-react'
 import 'antd/dist/reset.css'
-import './App.css'
+import './styles/app.less'
 import {
   clearAuthToken,
   clearMealEntries,
@@ -20,6 +20,7 @@ import {
   fetchCycleMacroSettings,
   fetchFoods,
   fetchMealDayState,
+  fetchMealFoodUsage,
   fetchProfileStatus,
   fetchPublicFoods,
   fetchRecommendationPrompts,
@@ -96,6 +97,7 @@ import type {
   MealDayState,
   MealDraftFormState,
   FoodSource,
+  FoodUsageCounts,
   MealFormState,
   MealSource,
   ProfileSource,
@@ -133,6 +135,16 @@ function getLocalDateString(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/**
+ * 按天数偏移日期字符串。
+ * @param dateString 当前日期字符串。
+ * @param dayOffset 日期偏移天数。
+ * @returns 偏移后的日期字符串。
+ */
+function shiftDateString(dateString: string, dayOffset: number) {
+  return dayjs(dateString).add(dayOffset, 'day').format('YYYY-MM-DD')
 }
 
 /** 判断是否为应用页面路由。 */
@@ -211,11 +223,15 @@ function roundMacroPerKg(value: number, weight: number) {
   return Math.round((value / weight) * 10) / 10
 }
 
-/** 计算热量缺口或盈余。 */
-function getCalorieBalance(planType: PlanType, calories: number, tdee: number) {
-  return planType === 'bulking'
-    ? Math.max(0, Math.round(calories - tdee))
-    : Math.max(0, Math.round(tdee - calories))
+/** 计算已吃热量与 TDEE 的实时差值。 */
+function getLiveCalorieBalance(consumedCalories: number, tdee: number) {
+  const calorieDiff = Math.round(consumedCalories - tdee)
+
+  return {
+    label: calorieDiff >= 0 ? '热量盈余' : '热量缺口',
+    value: Math.abs(calorieDiff),
+    isSurplus: calorieDiff >= 0,
+  }
 }
 
 /** 创建餐食本地缓存 key。 */
@@ -348,6 +364,69 @@ function roundMealQuantity(value: number) {
   return Math.round(value * 100) / 100
 }
 
+/**
+ * 按历史使用次数稳定排序食材。
+ * @param foods 食材列表。
+ * @param usageCounts 食材使用次数索引。
+ * @returns 排序后的食材列表。
+ */
+function sortFoodsByUsage(foods: Food[], usageCounts: FoodUsageCounts) {
+  return foods
+    .map((food, index) => ({ food, index }))
+    .sort((current, next) => {
+      const countDiff = (usageCounts[next.food.id] ?? 0) - (usageCounts[current.food.id] ?? 0)
+      return countDiff || current.index - next.index
+    })
+    .map(({ food }) => food)
+}
+
+/**
+ * 调整单个食材使用次数。
+ * @param usageCounts 当前使用次数索引。
+ * @param foodId 食材主键。
+ * @param delta 调整次数。
+ * @returns 调整后的使用次数索引。
+ */
+function adjustFoodUsageCounts(usageCounts: FoodUsageCounts, foodId: string, delta: number): FoodUsageCounts {
+  const nextCounts = { ...usageCounts }
+  const nextCount = Math.max(0, (nextCounts[foodId] ?? 0) + delta)
+
+  if (nextCount > 0) {
+    nextCounts[foodId] = nextCount
+  } else {
+    delete nextCounts[foodId]
+  }
+
+  return nextCounts
+}
+
+/**
+ * 批量调整餐食明细对应的食材使用次数。
+ * @param usageCounts 当前使用次数索引。
+ * @param mealEntries 餐食明细列表。
+ * @param delta 每条明细的调整次数。
+ * @returns 调整后的使用次数索引。
+ */
+function adjustMealFoodUsageCounts(usageCounts: FoodUsageCounts, mealEntries: MealEntry[], delta: number) {
+  return mealEntries.reduce(
+    (nextCounts, entry) => adjustFoodUsageCounts(nextCounts, entry.foodId, delta),
+    usageCounts,
+  )
+}
+
+/**
+ * 按餐食修改结果调整食材使用次数。
+ * @param usageCounts 当前使用次数索引。
+ * @param previousFoodId 修改前食材主键。
+ * @param nextFoodId 修改后食材主键。
+ * @returns 调整后的使用次数索引。
+ */
+function replaceMealFoodUsageCount(usageCounts: FoodUsageCounts, previousFoodId: string, nextFoodId: string) {
+  return previousFoodId === nextFoodId
+    ? usageCounts
+    : adjustFoodUsageCounts(adjustFoodUsageCounts(usageCounts, previousFoodId, -1), nextFoodId, 1)
+}
+
 /** 主应用组件。 */
 function App() {
   const [foodForm] = Form.useForm<FoodFormDraftValues>()
@@ -365,6 +444,8 @@ function App() {
   const [isProfileInitialized, setIsProfileInitialized] = useState(false)
   const [profile, setProfile] = useStoredState<Profile>('training-profile', defaultProfile)
   const [foods, setFoods] = useStoredState<Food[]>('training-foods', defaultFoods, normalizeStoredFoods)
+  /** 食材历史使用次数索引。 */
+  const [foodUsageCounts, setFoodUsageCounts] = useState<FoodUsageCounts>({})
   const [cycleMacroSettings, setCycleMacroSettingsState] = useState<CycleMacroSettings>(() =>
     normalizeCycleMacroSettings(readStoredState('training-cycle-macro-settings', defaultCycleMacroSettings)),
   )
@@ -456,6 +537,33 @@ function App() {
     localStorage.removeItem(createRecommendationCacheKey(selectedDate, activePlanType, authUser.id))
   }, [activePlanType, authUser, selectedDate])
 
+  /** 调整单个食材使用次数状态。 */
+  const adjustFoodUsage = useCallback((foodId: string, delta: number) => {
+    setFoodUsageCounts((currentCounts) => adjustFoodUsageCounts(currentCounts, foodId, delta))
+  }, [])
+
+  /** 批量调整食材使用次数状态。 */
+  const adjustMealFoodUsage = useCallback((mealEntries: MealEntry[], delta: number) => {
+    setFoodUsageCounts((currentCounts) => adjustMealFoodUsageCounts(currentCounts, mealEntries, delta))
+  }, [])
+
+  /** 按餐食编辑结果调整食材使用次数状态。 */
+  const replaceMealFoodUsage = useCallback((previousFoodId: string, nextFoodId: string) => {
+    setFoodUsageCounts((currentCounts) => replaceMealFoodUsageCount(currentCounts, previousFoodId, nextFoodId))
+  }, [])
+
+  /** 选择日期控件中的日期。 */
+  const selectDate = useCallback((date: Dayjs | null) => {
+    if (date) {
+      setSelectedDate(date.format('YYYY-MM-DD'))
+    }
+  }, [setSelectedDate])
+
+  /** 按天数快捷切换当前日期。 */
+  const switchSelectedDate = useCallback((dayOffset: number) => {
+    setSelectedDate((currentDate) => shiftDateString(currentDate, dayOffset))
+  }, [setSelectedDate])
+
   const dailyPlan = useMemo(() => (
     isBulkingPlan
       ? calculateBulkingDailyPlan(profile, bulkingDayType, bulkingMacroSettings)
@@ -467,15 +575,22 @@ function App() {
   const dayLabels: Record<string, string> = isBulkingPlan ? bulkingDayLabels : cycleLabels
   /** 当前日型顺序。 */
   const dayTypes: PlanDayType[] = isBulkingPlan ? bulkingDayTypes : cycleTypes
+  const consumed = useMemo(() => calculateEntryTotals(entries, foods), [entries, foods])
+  /** 当前已吃热量和 TDEE 的实时对比。 */
+  const calorieBalance = useMemo(
+    () => getLiveCalorieBalance(consumed.calories, dailyPlan.tdee),
+    [consumed.calories, dailyPlan.tdee],
+  )
   /** 当前热量平衡标签。 */
-  const balanceLabel = isBulkingPlan ? '热量盈余' : '热量缺口'
+  const balanceLabel = calorieBalance.label
   /** 当前热量平衡数值。 */
-  const balanceValue = getCalorieBalance(activePlanType, dailyPlan.calories, dailyPlan.tdee)
+  const balanceValue = calorieBalance.value
   /** 当前每公斤宏量摘要。 */
   const macroSummary = createMacroSummary(profile, dailyPlan)
-  const consumed = useMemo(() => calculateEntryTotals(entries, foods), [entries, foods])
   const remaining = useMemo(() => calculateRemaining(dailyPlan, consumed), [dailyPlan, consumed])
   const mealEntries = useMemo(() => groupEntriesByMeal(entries), [entries])
+  /** 餐食下拉使用的历史次数排序食材。 */
+  const mealFoods = useMemo(() => sortFoodsByUsage(foods, foodUsageCounts), [foodUsageCounts, foods])
   const targetRecommendationMeals = useMemo(() => getTargetRecommendationMeals(entries, skippedMeals), [entries, skippedMeals])
   const orderedRecommendationRequirement = useMemo(
     () => createOrderedRecommendationRequirement(recommendationPrompts),
@@ -497,6 +612,7 @@ function App() {
     setBulkingDayType('training')
     setEntriesState([])
     setSkippedMealsState({})
+    setFoodUsageCounts({})
     setRecommendationState(null)
     setRecommendationPrompts([])
     setProfileSource('loading')
@@ -722,6 +838,31 @@ function App() {
 
     return () => controller.abort()
   }, [activePlanType, authUser, isProfileInitialized, selectedDate, setBulkingDayType, setCycleType])
+
+  useEffect(() => {
+    if (!authUser || !isProfileInitialized) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    /** 从后端加载食材历史使用次数。 */
+    const loadMealFoodUsage = async () => {
+      try {
+        setFoodUsageCounts(await fetchMealFoodUsage(controller.signal))
+      } catch (error) {
+        if (isUnauthorizedApiError(error)) {
+          return
+        }
+
+        setFoodUsageCounts({})
+      }
+    }
+
+    loadMealFoodUsage()
+
+    return () => controller.abort()
+  }, [authUser, isProfileInitialized])
 
   useEffect(() => {
     if (!authUser || !isProfileInitialized) {
@@ -1019,6 +1160,7 @@ function App() {
         ? await createMealEntry(selectedDate, mealForm, cycleType, bulkingDayType)
         : createLocalMealEntry(mealForm, selectedFood)
       setEntries([...entries, nextEntry])
+      adjustFoodUsage(nextEntry.foodId, 1)
       clearSkippedMeal(mealForm.meal)
       setRecommendation(null)
       setMealSource(mealSource !== 'local' ? 'api' : 'local')
@@ -1028,7 +1170,9 @@ function App() {
       }
 
       setMealSource('local')
-      setEntries([...entries, createLocalMealEntry(mealForm, selectedFood)])
+      const nextEntry = createLocalMealEntry(mealForm, selectedFood)
+      setEntries([...entries, nextEntry])
+      adjustFoodUsage(nextEntry.foodId, 1)
       clearSkippedMeal(mealForm.meal)
       setRecommendation(null)
     }
@@ -1072,6 +1216,7 @@ function App() {
         ? await updateMealEntry(editingMealEntry.id, selectedDate, values, cycleType, bulkingDayType)
         : createLocalMealEntry(values, selectedFood, editingMealEntry.id)
       setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
+      replaceMealFoodUsage(editingMealEntry.foodId, nextEntry.foodId)
       clearSkippedMeal(values.meal)
       setRecommendation(null)
       closeMealEntryModal()
@@ -1081,7 +1226,9 @@ function App() {
       }
 
       setMealSource('local')
-      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? createLocalMealEntry(values, selectedFood, entry.id) : entry)))
+      const nextEntry = createLocalMealEntry(values, selectedFood, editingMealEntry.id)
+      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
+      replaceMealFoodUsage(editingMealEntry.foodId, nextEntry.foodId)
       clearSkippedMeal(values.meal)
       setRecommendation(null)
       closeMealEntryModal()
@@ -1098,12 +1245,17 @@ function App() {
 
   /** 删除餐食记录。 */
   const removeMealEntry = async (entryId: string) => {
+    const removedEntry = entries.find((entry) => entry.id === entryId)
+
     try {
       if (mealSource !== 'local') {
         await deleteMealEntry(entryId)
       }
 
       setEntries(entries.filter((entry) => entry.id !== entryId))
+      if (removedEntry) {
+        adjustFoodUsage(removedEntry.foodId, -1)
+      }
       setRecommendation(null)
     } catch (error) {
       if (isUnauthorizedApiError(error)) {
@@ -1122,6 +1274,7 @@ function App() {
       }
 
       setEntries([])
+      adjustMealFoodUsage(entries, -1)
       setSkippedMeals({})
       setRecommendation(null)
     } catch (error) {
@@ -1131,6 +1284,7 @@ function App() {
 
       setMealSource('local')
       setEntries([])
+      adjustMealFoodUsage(entries, -1)
       setSkippedMeals({})
       setRecommendation(null)
     }
@@ -1258,6 +1412,7 @@ function App() {
         })
 
       setEntries([...entries, ...nextEntries])
+      adjustMealFoodUsage(nextEntries, 1)
       clearSkippedMeal(meal)
       setMealSource(mealSource !== 'local' ? 'api' : 'local')
       setRecommendation(null)
@@ -1407,16 +1562,32 @@ function App() {
             <AppNav activeRoute={activeRoute} onNavigate={navigateRoute} />
           </div>
           <div className="topbar-actions">
-            <DatePicker
-              allowClear={false}
-              className="global-date-picker"
-              value={dayjs(selectedDate)}
-              onChange={(date) => {
-                if (date) {
-                  setSelectedDate(date.format('YYYY-MM-DD'))
-                }
-              }}
-            />
+            <div className="date-switcher" aria-label="日期切换">
+              <button
+                aria-label="前一天"
+                className="date-switcher-button"
+                title="前一天"
+                type="button"
+                onClick={() => switchSelectedDate(-1)}
+              >
+                <ChevronLeft size={16} strokeWidth={2.6} />
+              </button>
+              <DatePicker
+                allowClear={false}
+                className="global-date-picker"
+                value={dayjs(selectedDate)}
+                onChange={selectDate}
+              />
+              <button
+                aria-label="后一天"
+                className="date-switcher-button"
+                title="后一天"
+                type="button"
+                onClick={() => switchSelectedDate(1)}
+              >
+                <ChevronRight size={16} strokeWidth={2.6} />
+              </button>
+            </div>
             <StatusPill icon={<CalendarDays size={16} />} label={dayLabels[dayType]} />
             <StatusPill icon={<Flame size={16} />} label={`${dailyPlan.calories} kcal`} />
           </div>
@@ -1460,9 +1631,10 @@ function App() {
               importingRecommendationMeal={importingRecommendationMeal}
               isRecommending={isRecommending}
               isSavingPrompt={isSavingRecommendationPrompt}
-              isSurplusBalance={isBulkingPlan}
+              isSurplusBalance={calorieBalance.isSurplus}
               mealEntries={mealEntries}
               mealForm={mealForm}
+              mealFoods={mealFoods}
               mealSource={mealSource}
               macroSummary={macroSummary}
               orderedRecommendationRequirement={orderedRecommendationRequirement}
@@ -1505,7 +1677,7 @@ function App() {
           onSubmit={submitProfileForm}
         />
         <MealEntryModal
-          foods={foods}
+          foods={mealFoods}
           form={mealEntryForm}
           open={isMealEntryModalOpen}
           saving={isSavingMealEntry}

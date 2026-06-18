@@ -12,6 +12,7 @@ import com.training.dto.ApiDtos.MealDayResponse;
 import com.training.dto.ApiDtos.MealDayTypeRequest;
 import com.training.dto.ApiDtos.MealEntryRequest;
 import com.training.dto.ApiDtos.MealEntryResponse;
+import com.training.dto.ApiDtos.MealFoodUsageResponse;
 import com.training.dto.ApiDtos.NutritionTotals;
 import com.training.model.AppUser;
 import com.training.model.CycleType;
@@ -60,6 +61,13 @@ public class MealLogService {
     /** 查询某天餐食。 */
     public MealDayResponse listByDate(LocalDate date) {
         return toMealDayResponse(mealLogItemRepository.findByMealLogUserAndMealLogLogDate(currentUserContext.get(), date));
+    }
+
+    /** 查询当前用户食材历史使用次数。 */
+    public List<MealFoodUsageResponse> listFoodUsage() {
+        return mealLogItemRepository.countFoodUsageByUser(currentUserContext.get()).stream()
+                .map(usage -> new MealFoodUsageResponse(usage.getFoodId(), usage.getCount()))
+                .toList();
     }
 
     /** 添加餐食明细。 */

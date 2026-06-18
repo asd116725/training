@@ -55,6 +55,7 @@ function blurActiveElement() {
 /** 五餐记录面板组件。 */
 export function MealPanel({
   foods,
+  mealFoods,
   mealEntries,
   mealForm,
   mealSource,
@@ -69,6 +70,7 @@ export function MealPanel({
   onSkipMeal,
 }: {
   foods: Food[]
+  mealFoods: Food[]
   mealEntries: Partial<Record<MealType, MealEntry[]>>
   mealForm: MealDraftFormState
   mealSource: MealSource
@@ -99,13 +101,22 @@ export function MealPanel({
   /** 关闭添加记录弹窗。 */
   const closeAddModal = () => setIsAddModalOpen(false)
 
-  /** 保存新增餐食记录。 */
-  const saveMealEntry = async () => {
+  /**
+   * 保存新增餐食记录。
+   * @param shouldContinue 保存后是否继续添加下一条。
+   */
+  const saveMealEntry = async (shouldContinue = false) => {
     if (mealForm.meal) {
       saveLastMealType(mealForm.meal)
     }
 
     await onAddMealEntry()
+
+    if (shouldContinue) {
+      onMealFormChange({ meal: mealForm.meal })
+      return
+    }
+
     closeAddModal()
   }
 
@@ -126,7 +137,7 @@ export function MealPanel({
         {selectedDate} · {entryCount} 条记录 · {mealSourceLabels[mealSource]}
       </p>
       <MealAddModal
-        foods={foods}
+        mealFoods={mealFoods}
         mealForm={mealForm}
         open={isAddModalOpen}
         canSubmit={canSubmitMealForm}
@@ -160,7 +171,7 @@ export function MealPanel({
 /** 添加餐食记录弹窗组件。 */
 function MealAddModal({
   canSubmit,
-  foods,
+  mealFoods,
   mealForm,
   open,
   previewGrams,
@@ -172,7 +183,7 @@ function MealAddModal({
   onSubmit,
 }: {
   canSubmit: boolean
-  foods: Food[]
+  mealFoods: Food[]
   mealForm: MealDraftFormState
   open: boolean
   previewGrams: number
@@ -181,7 +192,7 @@ function MealAddModal({
   selectedFoodRemark: string
   onCancel: () => void
   onMealFormChange: (mealForm: MealDraftFormState) => void
-  onSubmit: () => void | Promise<void>
+  onSubmit: (shouldContinue?: boolean) => void | Promise<void>
 }) {
   /** 当前选择食材的单位名称。 */
   const foodUnitName = selectedFood?.unitName ?? '单位'
@@ -202,7 +213,15 @@ function MealAddModal({
             <Button className="meal-add-cancel" onClick={onCancel}>
               取消
             </Button>
-            <Button className="meal-add-save" disabled={!canSubmit} icon={<Check size={16} />} type="primary" onClick={onSubmit}>
+            <Button
+              className="meal-add-save-and-continue"
+              disabled={!canSubmit}
+              icon={<Check size={16} />}
+              onClick={() => onSubmit(true)}
+            >
+              保存并继续
+            </Button>
+            <Button className="meal-add-save" disabled={!canSubmit} icon={<Check size={16} />} type="primary" onClick={() => onSubmit()}>
               保存记录
             </Button>
           </div>
@@ -243,7 +262,7 @@ function MealAddModal({
             placeholder="请选择食材"
             optionFilterProp="label"
             value={mealForm.foodId}
-            options={foods.map((food) => ({ value: food.id, label: food.name }))}
+            options={mealFoods.map((food) => ({ value: food.id, label: food.name }))}
             onChange={(foodId) => onMealFormChange({ ...mealForm, foodId })}
             onSelect={blurActiveElement}
           />

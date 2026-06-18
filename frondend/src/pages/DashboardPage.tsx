@@ -34,6 +34,7 @@ interface DashboardPageProps {
   isSurplusBalance: boolean
   mealEntries: Partial<Record<MealType, MealEntry[]>>
   mealForm: MealDraftFormState
+  mealFoods: Food[]
   mealSource: MealSource
   macroSummary: string
   orderedRecommendationRequirement: string
@@ -74,6 +75,7 @@ export function DashboardPage({
   isSurplusBalance,
   mealEntries,
   mealForm,
+  mealFoods,
   mealSource,
   macroSummary,
   orderedRecommendationRequirement,
@@ -128,6 +130,7 @@ export function DashboardPage({
       />
       <MealPanel
         foods={foods}
+        mealFoods={mealFoods}
         mealEntries={mealEntries}
         mealForm={mealForm}
         mealSource={mealSource}
