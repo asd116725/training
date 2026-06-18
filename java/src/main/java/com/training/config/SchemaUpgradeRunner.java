@@ -54,7 +54,6 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
             migrateLegacyMealUnits();
         }
         normalizeInvalidUnits();
-        normalizeLegacyUnitFoodNutrition();
         normalizePerGramFoodNutrition();
         normalizeFoodNutritionScale();
         dropIndexIfExists("meal_logs", "uk_meal_logs_date_type");
@@ -110,19 +109,6 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                 UPDATE meal_log_items
                 SET quantity = grams
                 WHERE quantity <= 0 AND grams > 0
-                """);
-    }
-
-    /** 扫描并修复旧版非克单位的每单位营养。 */
-    private void normalizeLegacyUnitFoodNutrition() {
-        jdbcTemplate.update("""
-                UPDATE foods
-                SET protein = protein / unit_weight * 100,
-                    carbs = carbs / unit_weight * 100,
-                    fat = fat / unit_weight * 100,
-                    calories = calories / unit_weight * 100
-                WHERE unit_weight > 1
-                  AND (protein > 1 OR carbs > 1 OR fat > 1 OR calories > 20)
                 """);
     }
 

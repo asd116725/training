@@ -62,13 +62,7 @@ SET unit_name = '克',
     unit_weight = 1
 WHERE unit_weight IS NULL OR unit_weight <= 0
    OR unit_name IS NULL OR TRIM(unit_name) = '';
-UPDATE foods
-SET protein = protein / unit_weight * 100,
-    carbs = carbs / unit_weight * 100,
-    fat = fat / unit_weight * 100,
-    calories = calories / unit_weight * 100
-WHERE unit_weight > 1
-  AND (protein > 1 OR carbs > 1 OR fat > 1 OR calories > 20);
+-- 非克单位营养值已统一按每 100g 存储，重复转换会放大数据，旧库如需迁移请按备份人工处理。
 UPDATE foods
 SET protein = protein * 100,
     carbs = carbs * 100,
