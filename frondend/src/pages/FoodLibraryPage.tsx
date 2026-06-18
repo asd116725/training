@@ -242,35 +242,43 @@ export function FoodLibraryPage({
       {
         dataIndex: 'name',
         title: '名称',
+        width: 150,
         render: (name: Food['name']) => <strong className="food-name-cell">{name}</strong>,
       },
       {
         key: 'unit',
         title: '单位',
+        width: 120,
         render: (_: unknown, food) => <span className="food-unit-cell">{formatFoodUnit(food)}</span>,
       },
       {
         dataIndex: 'protein',
         title: '蛋白质',
+        width: 140,
         render: (value: Food['protein']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'carbs',
         title: '碳水',
+        width: 130,
         render: (value: Food['carbs']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'fat',
         title: '脂肪',
+        width: 130,
         render: (value: Food['fat']) => formatFoodMacro(value, 'g'),
       },
       {
         dataIndex: 'calories',
         title: '热量',
+        width: 160,
         render: (value: Food['calories']) => formatFoodMacro(value, 'kcal'),
       },
       {
         align: 'right',
+        className: 'food-actions-column',
+        fixed: 'right',
         key: 'actions',
         title: '操作',
         width: 110,
@@ -383,7 +391,7 @@ export function FoodLibraryPage({
           loading={loadingPublicFoods}
           pagination={{ pageSize: 8, showSizeChanger: false, showTotal: (total) => `共 ${total} 条` }}
           rowKey={(food) => `${food.id}-${food.owned ? 'mine' : 'public'}`}
-          scroll={{ x: 900 }}
+          scroll={{ x: 940 }}
         />
       </Modal>
     </section>
