@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type DragEvent } from 'react'
 import { Button, InputNumber, Modal, Select, Space } from 'antd'
 import { Check, Pencil, Plus, RefreshCcw, Trash2, Utensils, X } from 'lucide-react'
 import {
@@ -26,6 +26,12 @@ const mealSourceLabels: Record<MealSource, string> = {
 
 /** 添加餐食上次餐次缓存 key。 */
 const lastMealTypeKey = 'training-last-meal-type'
+
+/** 餐次列拖拽事件处理函数。 */
+type MealColumnDragHandler = (event: DragEvent<HTMLDivElement>, meal: MealType) => void
+
+/** 餐食卡片拖拽开始事件处理函数。 */
+type MealItemDragStartHandler = (event: DragEvent<HTMLDivElement>, entry: MealEntry) => void
 
 /** 判断是否为餐次类型。 */
 function isMealType(value: string | null): value is MealType {
@@ -64,6 +70,7 @@ export function MealPanel({
   onAddMealEntry,
   onEditMealEntry,
   onMealFormChange,
+  onMoveMealEntry,
   onRestoreMeal,
   onRemoveMealEntry,
   onResetMeals,
@@ -79,6 +86,7 @@ export function MealPanel({
   onAddMealEntry: () => void | Promise<void>
   onEditMealEntry: (entry: MealEntry) => void
   onMealFormChange: (mealForm: MealDraftFormState) => void
+  onMoveMealEntry: (entry: MealEntry, targetMeal: MealType) => void | Promise<void>
   onRestoreMeal: (meal: MealType) => void
   onRemoveMealEntry: (entryId: string) => void
   onResetMeals: () => void
@@ -86,7 +94,18 @@ export function MealPanel({
 }) {
   const entryCount = mealTypes.reduce((count, meal) => count + (mealEntries[meal]?.length ?? 0), 0)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  /** 当前拖拽中的餐食记录 ID。 */
+  const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null)
+  /** 当前拖拽悬停的餐次。 */
+  const [dragOverMeal, setDragOverMeal] = useState<MealType | null>(null)
+  /** 当前正在保存移动的餐食记录 ID。 */
+  const [movingEntryId, setMovingEntryId] = useState<string | null>(null)
   const selectedFood = useMemo(() => foods.find((food) => food.id === mealForm.foodId), [foods, mealForm.foodId])
+  /** 餐食记录 ID 索引。 */
+  const mealEntryMap = useMemo(
+    () => new Map(mealTypes.flatMap((meal) => (mealEntries[meal] ?? []).map((entry) => [entry.id, entry] as const))),
+    [mealEntries],
+  )
   const selectedFoodRemark = selectedFood?.remark?.trim() ?? ''
   const previewGrams = selectedFood && mealForm.quantity ? calculateFoodGrams(selectedFood, mealForm.quantity) : 0
   const previewNutrition = selectedFood && mealForm.quantity ? calculateFoodNutrition(selectedFood, previewGrams) : null
@@ -100,6 +119,67 @@ export function MealPanel({
 
   /** 关闭添加记录弹窗。 */
   const closeAddModal = () => setIsAddModalOpen(false)
+
+  /** 清理餐食拖拽状态。 */
+  const clearMealDragState = () => {
+    setDraggingEntryId(null)
+    setDragOverMeal(null)
+  }
+
+  /** 开始拖拽餐食记录。 */
+  const startMealEntryDrag: MealItemDragStartHandler = (event, entry) => {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', entry.id)
+    setDraggingEntryId(entry.id)
+  }
+
+  /** 拖过餐次列时标记目标餐次。 */
+  const dragOverMealColumn: MealColumnDragHandler = (event, meal) => {
+    /** 当前拖拽中的餐食记录。 */
+    const draggingEntry = draggingEntryId ? mealEntryMap.get(draggingEntryId) : null
+
+    if (!draggingEntry || draggingEntry.meal === meal || movingEntryId) {
+      return
+    }
+
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    setDragOverMeal(meal)
+  }
+
+  /** 离开餐次列时取消目标高亮。 */
+  const leaveMealColumn: MealColumnDragHandler = (event, meal) => {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return
+    }
+
+    if (dragOverMeal === meal) {
+      setDragOverMeal(null)
+    }
+  }
+
+  /** 拖放餐食记录到目标餐次。 */
+  const dropMealEntry: MealColumnDragHandler = async (event, targetMeal) => {
+    event.preventDefault()
+    /** 被拖放的餐食记录 ID。 */
+    const entryId = event.dataTransfer.getData('text/plain') || draggingEntryId
+    /** 被拖放的餐食记录。 */
+    const entry = entryId ? mealEntryMap.get(entryId) : undefined
+
+    clearMealDragState()
+
+    if (!entry || entry.meal === targetMeal || movingEntryId) {
+      return
+    }
+
+    setMovingEntryId(entry.id)
+
+    try {
+      await onMoveMealEntry(entry, targetMeal)
+    } finally {
+      setMovingEntryId(null)
+    }
+  }
 
   /**
    * 保存新增餐食记录。
@@ -156,7 +236,15 @@ export function MealPanel({
             meal={meal}
             entries={mealEntries[meal] ?? []}
             foods={foods}
+            dragOverMeal={dragOverMeal}
+            draggingEntryId={draggingEntryId}
             isSkipped={Boolean(skippedMeals[meal])}
+            movingEntryId={movingEntryId}
+            onDragEnd={clearMealDragState}
+            onDragLeave={leaveMealColumn}
+            onDragOver={dragOverMealColumn}
+            onDragStart={startMealEntryDrag}
+            onDrop={dropMealEntry}
             onEdit={onEditMealEntry}
             onRemove={onRemoveMealEntry}
             onRestore={onRestoreMeal}
@@ -332,7 +420,15 @@ function MealColumn({
   meal,
   entries,
   foods,
+  dragOverMeal,
+  draggingEntryId,
   isSkipped,
+  movingEntryId,
+  onDragEnd,
+  onDragLeave,
+  onDragOver,
+  onDragStart,
+  onDrop,
   onEdit,
   onRemove,
   onRestore,
@@ -341,16 +437,35 @@ function MealColumn({
   meal: MealType
   entries: MealEntry[]
   foods: Food[]
+  dragOverMeal: MealType | null
+  draggingEntryId: string | null
   isSkipped: boolean
+  movingEntryId: string | null
+  onDragEnd: () => void
+  onDragLeave: MealColumnDragHandler
+  onDragOver: MealColumnDragHandler
+  onDragStart: MealItemDragStartHandler
+  onDrop: MealColumnDragHandler
   onEdit: (entry: MealEntry) => void
   onRemove: (entryId: string) => void
   onRestore: (meal: MealType) => void
   onSkip: (meal: MealType) => void
 }) {
   const totals = calculateEntryTotals(entries, foods)
+  /** 餐次列状态类名。 */
+  const columnClassName = [
+    'meal-column',
+    draggingEntryId ? 'is-drag-active' : '',
+    dragOverMeal === meal ? 'is-drag-over' : '',
+  ].filter(Boolean).join(' ')
 
   return (
-    <div className="meal-column">
+    <div
+      className={columnClassName}
+      onDragLeave={(event) => onDragLeave(event, meal)}
+      onDragOver={(event) => onDragOver(event, meal)}
+      onDrop={(event) => onDrop(event, meal)}
+    >
       <div className="meal-column-head">
         <strong>{mealLabels[meal]}</strong>
         <span>{Math.round(totals.calories)} kcal</span>
@@ -362,17 +477,34 @@ function MealColumn({
           entries.map((entry) => {
             const food = foods.find((item) => item.id === entry.foodId)
             const nutrition = food ? calculateFoodNutrition(food, entry.grams) : null
+            /** 餐食卡片状态类名。 */
+            const itemClassName = [
+              'meal-item',
+              draggingEntryId === entry.id ? 'is-dragging' : '',
+              movingEntryId === entry.id ? 'is-moving' : '',
+            ].filter(Boolean).join(' ')
+            /** 当前餐食记录是否正在保存移动。 */
+            const isMovingEntry = movingEntryId === entry.id
 
             return (
-              <div className="meal-item" key={entry.id}>
+              <div
+                aria-busy={isMovingEntry}
+                aria-grabbed={draggingEntryId === entry.id}
+                className={itemClassName}
+                draggable={!isMovingEntry}
+                key={entry.id}
+                title="拖动到其他餐次"
+                onDragEnd={onDragEnd}
+                onDragStart={(event) => onDragStart(event, entry)}
+              >
                 <div className="meal-item-main">
                   <div className="meal-item-title">
                     <strong>{food?.name}</strong>
                     <div className="meal-item-actions">
-                      <button type="button" onClick={() => onEdit(entry)} aria-label="编辑餐食">
+                      <button draggable={false} type="button" onClick={() => onEdit(entry)} aria-label="编辑餐食">
                         <Pencil size={14} />
                       </button>
-                      <button type="button" onClick={() => onRemove(entry.id)} aria-label="删除餐食">
+                      <button draggable={false} type="button" onClick={() => onRemove(entry.id)} aria-label="删除餐食">
                         <Trash2 size={14} />
                       </button>
                     </div>

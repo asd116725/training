@@ -552,6 +552,11 @@ function App() {
     setFoodUsageCounts((currentCounts) => replaceMealFoodUsageCount(currentCounts, previousFoodId, nextFoodId))
   }, [])
 
+  /** 替换单条餐食记录。 */
+  const replaceMealEntry = useCallback((entryId: string, nextEntry: MealEntry) => {
+    setEntries(entries.map((entry) => (entry.id === entryId ? nextEntry : entry)))
+  }, [entries, setEntries])
+
   /** 选择日期控件中的日期。 */
   const selectDate = useCallback((date: Dayjs | null) => {
     if (date) {
@@ -1215,7 +1220,7 @@ function App() {
       const nextEntry = mealSource !== 'local'
         ? await updateMealEntry(editingMealEntry.id, selectedDate, values, cycleType, bulkingDayType)
         : createLocalMealEntry(values, selectedFood, editingMealEntry.id)
-      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
+      replaceMealEntry(editingMealEntry.id, nextEntry)
       replaceMealFoodUsage(editingMealEntry.foodId, nextEntry.foodId)
       clearSkippedMeal(values.meal)
       setRecommendation(null)
@@ -1227,7 +1232,7 @@ function App() {
 
       setMealSource('local')
       const nextEntry = createLocalMealEntry(values, selectedFood, editingMealEntry.id)
-      setEntries(entries.map((entry) => (entry.id === editingMealEntry.id ? nextEntry : entry)))
+      replaceMealEntry(editingMealEntry.id, nextEntry)
       replaceMealFoodUsage(editingMealEntry.foodId, nextEntry.foodId)
       clearSkippedMeal(values.meal)
       setRecommendation(null)
@@ -1241,6 +1246,49 @@ function App() {
   const submitMealEntryForm = async () => {
     const values = await mealEntryForm.validateFields()
     await saveMealEntryInfo(values)
+  }
+
+  /** 移动餐食记录到目标餐次。 */
+  const moveMealEntry = async (entry: MealEntry, targetMeal: MealType) => {
+    if (entry.meal === targetMeal) {
+      return
+    }
+
+    /** 待移动餐食对应的食材。 */
+    const selectedFood = foods.find((food) => food.id === entry.foodId)
+
+    if (!selectedFood) {
+      messageApi.warning('请选择有效食材')
+      return
+    }
+
+    /** 移动保存使用的餐食表单值。 */
+    const values: MealFormState = {
+      meal: targetMeal,
+      foodId: entry.foodId,
+      quantity: entry.quantity,
+    }
+
+    /** 应用移动后的餐食记录。 */
+    const applyMovedMealEntry = (nextEntry: MealEntry) => {
+      replaceMealEntry(entry.id, nextEntry)
+      clearSkippedMeal(targetMeal)
+      setRecommendation(null)
+    }
+
+    try {
+      const nextEntry = mealSource !== 'local'
+        ? await updateMealEntry(entry.id, selectedDate, values, cycleType, bulkingDayType)
+        : createLocalMealEntry(values, selectedFood, entry.id)
+      applyMovedMealEntry(nextEntry)
+    } catch (error) {
+      if (isUnauthorizedApiError(error)) {
+        return
+      }
+
+      setMealSource('local')
+      applyMovedMealEntry(createLocalMealEntry(values, selectedFood, entry.id))
+    }
   }
 
   /** 删除餐食记录。 */
@@ -1649,6 +1697,7 @@ function App() {
               onEditMealEntry={openEditMealEntry}
               onImportRecommendation={importRecommendationByMeal}
               onMealFormChange={setMealForm}
+              onMoveMealEntry={moveMealEntry}
               onMovePrompt={moveRecommendationPrompt}
               onRemoveMealEntry={removeMealEntry}
               onRemovePrompt={removeRecommendationPrompt}

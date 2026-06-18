@@ -441,6 +441,21 @@
   border-radius: 6px;
   min-height: 172px;
   padding: 12px;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.meal-column.is-drag-active {
+  border-color: rgba(196, 255, 205, 0.26);
+}
+
+.meal-column.is-drag-over {
+  background:
+    linear-gradient(180deg, rgba(57, 255, 136, 0.1), rgba(7, 10, 8, 0.78)),
+    rgba(7, 10, 8, 0.72);
+  border-color: var(--emerald);
+  box-shadow:
+    0 0 0 1px rgba(57, 255, 136, 0.12) inset,
+    0 0 22px rgba(57, 255, 136, 0.12);
 }
 
 .meal-column-head {
@@ -519,7 +534,24 @@
   background: var(--control);
   border: 1px solid var(--line);
   border-radius: 5px;
+  cursor: grab;
   padding: 8px;
+  transition: border-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+}
+
+.meal-item:active {
+  cursor: grabbing;
+}
+
+.meal-item.is-dragging {
+  opacity: 0.48;
+  transform: scale(0.985);
+}
+
+.meal-item.is-moving {
+  border-color: rgba(57, 255, 136, 0.45);
+  opacity: 0.56;
+  pointer-events: none;
 }
 
 .meal-item-main {
@@ -576,4 +608,3 @@
 .meal-item button:hover {
   color: var(--emerald);
 }
-

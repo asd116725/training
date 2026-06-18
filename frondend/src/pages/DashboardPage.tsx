@@ -49,6 +49,7 @@ interface DashboardPageProps {
   onEditMealEntry: (entry: MealEntry) => void
   onImportRecommendation: (meal: MealType) => void
   onMealFormChange: (mealForm: MealDraftFormState) => void
+  onMoveMealEntry: (entry: MealEntry, targetMeal: MealType) => void | Promise<void>
   onMovePrompt: (promptId: string, direction: 'up' | 'down') => Promise<void>
   onRemoveMealEntry: (entryId: string) => void
   onRemovePrompt: (promptId: string) => Promise<void>
@@ -90,6 +91,7 @@ export function DashboardPage({
   onEditMealEntry,
   onImportRecommendation,
   onMealFormChange,
+  onMoveMealEntry,
   onMovePrompt,
   onRemoveMealEntry,
   onRemovePrompt,
@@ -139,6 +141,7 @@ export function DashboardPage({
         onAddMealEntry={onAddMealEntry}
         onEditMealEntry={onEditMealEntry}
         onMealFormChange={onMealFormChange}
+        onMoveMealEntry={onMoveMealEntry}
         onRestoreMeal={onRestoreMeal}
         onSkipMeal={onSkipMeal}
         onRemoveMealEntry={onRemoveMealEntry}
