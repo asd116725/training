@@ -1,0 +1,32 @@
+/** 前端流水线，Jenkins 的 Script Path 配置为 frondend/Jenkinsfile。 */
+pipeline {
+    agent any
+
+    tools {
+        nodejs 'frontend-node'
+    }
+
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    stages {
+        stage('安装依赖') {
+            steps {
+                sh 'npm --prefix frondend ci'
+            }
+        }
+
+        stage('打包') {
+            steps {
+                sh 'npm --prefix frondend run build'
+            }
+        }
+
+        stage('保存产物') {
+            steps {
+                archiveArtifacts artifacts: 'frondend/dist/**', fingerprint: true
+            }
+        }
+    }
+}
