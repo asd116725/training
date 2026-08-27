@@ -58,7 +58,7 @@ class FoodServiceTest {
     void shouldListCurrentUserFoods() {
         Food food = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
         food.id = 1L;
-        when(foodRepository.findByUserOrderByIdAsc(user)).thenReturn(List.of(food));
+        when(foodRepository.findByUserAndDeletedFalseOrderByIdAsc(user)).thenReturn(List.of(food));
 
         List<FoodResponse> foods = foodService.listFoods();
 
@@ -76,7 +76,7 @@ class FoodServiceTest {
         ownedFood.id = 1L;
         Food publicFood = new Food("虾", 20, 0, 0.5, 85);
         publicFood.id = 2L;
-        when(foodRepository.findAll()).thenReturn(List.of(ownedFood, publicFood));
+        when(foodRepository.findByDeletedFalseOrderByIdAsc()).thenReturn(List.of(ownedFood, publicFood));
 
         List<FoodResponse> foods = foodService.listPublicFoods();
 
@@ -94,7 +94,7 @@ class FoodServiceTest {
         defaultSeedFood.defaultSeed = true;
         Food manualFood = new Food(otherUser, "牛奶", "瓶", 200, 8, 10, 8, 150);
         manualFood.id = 2L;
-        when(foodRepository.findAll()).thenReturn(List.of(defaultSeedFood, manualFood));
+        when(foodRepository.findByDeletedFalseOrderByIdAsc()).thenReturn(List.of(defaultSeedFood, manualFood));
 
         List<FoodResponse> foods = foodService.listPublicFoods();
 
@@ -108,7 +108,7 @@ class FoodServiceTest {
         Food source = new Food("虾", "份", 120, 24, 0, 0.6, 102);
         source.id = 2L;
         source.remark = "去壳后称重";
-        when(foodRepository.findById(2L)).thenReturn(Optional.of(source));
+        when(foodRepository.findByIdAndDeletedFalse(2L)).thenReturn(Optional.of(source));
         when(foodRepository.save(any(Food.class))).thenAnswer(invocation -> {
             Food savedFood = invocation.getArgument(0);
             savedFood.id = 3L;
@@ -133,7 +133,7 @@ class FoodServiceTest {
     void shouldReturnOwnedFoodWhenImportingSelf() {
         Food source = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
         source.id = 1L;
-        when(foodRepository.findById(1L)).thenReturn(Optional.of(source));
+        when(foodRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(source));
 
         FoodResponse response = foodService.importFood(1L);
 
@@ -166,7 +166,7 @@ class FoodServiceTest {
     void shouldUpdateFoodUnitAndRemark() {
         Food food = new Food(user, "牛奶馒头", "克", 1, 0.09, 0.5, 0.04, 2.75);
         food.id = 1L;
-        when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.of(food));
+        when(foodRepository.findByIdAndUserAndDeletedFalse(1L, user)).thenReturn(Optional.of(food));
         when(foodRepository.save(any(Food.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         FoodResponse response = foodService.updateFood(1L,
@@ -183,7 +183,7 @@ class FoodServiceTest {
     /** 验证不能修改其他用户食材。 */
     @Test
     void shouldReturnNotFoundWhenUpdatingOtherUserFood() {
-        when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.empty());
+        when(foodRepository.findByIdAndUserAndDeletedFalse(1L, user)).thenReturn(Optional.empty());
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class,
                 () -> foodService.updateFood(1L, new FoodRequest("牛肉", "克", 1, 23, 0, 3, 120, "")));
@@ -194,10 +194,23 @@ class FoodServiceTest {
     /** 验证不能删除其他用户食材。 */
     @Test
     void shouldReturnNotFoundWhenDeletingOtherUserFood() {
-        when(foodRepository.findByIdAndUser(1L, user)).thenReturn(Optional.empty());
+        when(foodRepository.findByIdAndUserAndDeletedFalse(1L, user)).thenReturn(Optional.empty());
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class, () -> foodService.deleteFood(1L));
 
         assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+    }
+
+    /** 验证删除食材时使用软删除保留历史记录。 */
+    @Test
+    void shouldSoftDeleteOwnedFood() {
+        Food food = new Food(user, "牛奶", "瓶", 200, 7.2, 10, 8, 140);
+        food.id = 1L;
+        when(foodRepository.findByIdAndUserAndDeletedFalse(1L, user)).thenReturn(Optional.of(food));
+
+        foodService.deleteFood(1L);
+
+        assertTrue(food.deleted);
+        verify(foodRepository).save(food);
     }
 }

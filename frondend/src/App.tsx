@@ -57,6 +57,7 @@ import {
   calculateDailyPlan,
   calculateEntryTotals,
   calculateFoodGrams,
+  calculateFoodNutrition,
   calculateRemaining,
   createId,
   cycleLabels,
@@ -349,13 +350,23 @@ function isCompleteMealForm(mealForm: MealDraftFormState): mealForm is MealFormS
 
 /** 基于当前食材快照创建本地餐食记录。 */
 function createLocalMealEntry(mealForm: MealFormState, food: Food, id: string = createId()): MealEntry {
+  /** 餐食克数。 */
+  const grams = calculateFoodGrams(food, mealForm.quantity)
+  /** 餐食营养快照。 */
+  const nutrition = calculateFoodNutrition(food, grams)
+
   return {
     id,
     meal: mealForm.meal,
     foodId: mealForm.foodId,
+    foodName: food.name,
     quantity: mealForm.quantity,
     unitName: food.unitName,
-    grams: calculateFoodGrams(food, mealForm.quantity),
+    grams,
+    calories: nutrition.calories,
+    protein: nutrition.protein,
+    carbs: nutrition.carbs,
+    fat: nutrition.fat,
   }
 }
 
@@ -1127,7 +1138,7 @@ function App() {
     setRecommendation(null)
   }
 
-  /** 删除食材并清理关联餐食。 */
+  /** 删除食材并保留历史餐食。 */
   const removeFood = async (foodId: string) => {
     try {
       if (foodSource === 'api') {
@@ -1135,7 +1146,6 @@ function App() {
       }
 
       setFoods(foods.filter((food) => food.id !== foodId))
-      setEntries(entries.filter((entry) => entry.foodId !== foodId))
       setRecommendation(null)
     } catch (error) {
       if (isUnauthorizedApiError(error)) {

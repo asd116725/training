@@ -2,7 +2,7 @@ import { AutoComplete, Button, Drawer, Form, Input, InputNumber } from 'antd'
 import type { FormInstance, InputNumberProps } from 'antd'
 import { Check, Table2, X } from 'lucide-react'
 import type { ChangeEventHandler } from 'react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { defaultFoodForm } from '../config'
 import { foodUnitNames } from '../domain'
 import type { FoodEditorMode, FoodFormDraftValues } from '../types'
@@ -110,11 +110,12 @@ export function FoodDrawer({
   /** 当前热量录入单位。 */
   const [calorieUnit, setCalorieUnit] = useState<CalorieUnit>('kcal')
 
-  useEffect(() => {
-    if (open) {
+  /** 抽屉打开后重置热量录入单位。 */
+  const resetCalorieUnit = (drawerOpen: boolean) => {
+    if (drawerOpen) {
       setCalorieUnit('kcal')
     }
-  }, [open])
+  }
 
   /** 切换食材单位。 */
   const changeFoodUnit = (nextUnitName: string) => {
@@ -168,6 +169,7 @@ export function FoodDrawer({
 
   return (
     <Drawer
+      afterOpenChange={resetCalorieUnit}
       className="food-drawer"
       closeIcon={<X size={17} />}
       footer={

@@ -46,9 +46,14 @@ export interface MealEntry {
   id: string
   meal: MealType
   foodId: string
+  foodName?: string
   quantity: number
   unitName: string
   grams: number
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
 }
 
 /** 营养素合计。 */
@@ -364,10 +369,25 @@ export function calculateEntryTotals(entries: MealEntry[], foods: Food[]): Nutri
     entries
       .map((entry) => {
         const food = foods.find((item) => item.id === entry.foodId)
-        return food ? calculateFoodNutrition(food, entry.grams) : null
+        return food ? calculateFoodNutrition(food, entry.grams) : getEntryNutrition(entry)
       })
       .filter((item): item is NutritionTotals => Boolean(item)),
   )
+}
+
+/** 获取餐食记录营养快照。 */
+export function getEntryNutrition(entry: MealEntry): NutritionTotals | null {
+  return entry.calories === undefined
+    || entry.protein === undefined
+    || entry.carbs === undefined
+    || entry.fat === undefined
+    ? null
+    : {
+      calories: entry.calories,
+      protein: entry.protein,
+      carbs: entry.carbs,
+      fat: entry.fat,
+    }
 }
 
 /** 计算剩余营养目标。 */

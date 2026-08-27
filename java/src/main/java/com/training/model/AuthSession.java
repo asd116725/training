@@ -15,7 +15,7 @@ import jakarta.persistence.Table;
 /** 登录会话实体。 */
 @Entity
 @Table(name = "auth_sessions")
-public class AuthSession {
+public class  AuthSession {
 
     /** 主键。 */
     @Id

@@ -37,6 +37,7 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
                 "ALTER TABLE foods ADD COLUMN unit_name VARCHAR(20) NOT NULL DEFAULT '克'");
         addColumnIfMissing("foods", "unit_weight",
                 "ALTER TABLE foods ADD COLUMN unit_weight DOUBLE NOT NULL DEFAULT 1");
+        addColumnIfMissing("foods", "deleted", "ALTER TABLE foods ADD COLUMN deleted BIT NOT NULL DEFAULT 0");
         addColumnIfMissing("meal_log_items", "quantity",
                 "ALTER TABLE meal_log_items ADD COLUMN quantity DOUBLE NOT NULL DEFAULT 0");
         addColumnIfMissing("meal_log_items", "unit_name",
@@ -46,6 +47,7 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         addColumnIfMissing("meal_logs", "bulking_day_type",
                 "ALTER TABLE meal_logs ADD COLUMN bulking_day_type VARCHAR(40) NOT NULL DEFAULT 'TRAINING'");
         ensureDefaultSeedColumnDefault();
+        ensureDeletedColumnDefault();
         ensureUnitColumnDefaults();
         if (shouldMigrateLegacyFoodUnits) {
             migrateLegacyFoodUnits();
@@ -61,6 +63,8 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
         dropUniqueIndexByColumns("meal_logs", "log_date,meal_type");
         dropUniqueIndexByColumns("cycle_macro_settings", "cycle_type");
         addIndexIfMissing("foods", "idx_foods_user_id", "ALTER TABLE foods ADD INDEX idx_foods_user_id (user_id)");
+        addIndexIfMissing("foods", "idx_foods_user_deleted",
+                "ALTER TABLE foods ADD INDEX idx_foods_user_deleted (user_id, deleted)");
         addIndexIfMissing("user_profiles", "uk_user_profiles_user",
                 "ALTER TABLE user_profiles ADD UNIQUE KEY uk_user_profiles_user (user_id)");
         addIndexIfMissing("meal_logs", "uk_meal_logs_user_date_type",
@@ -227,6 +231,14 @@ public class SchemaUpgradeRunner implements ApplicationRunner {
     private void ensureDefaultSeedColumnDefault() {
         try {
             jdbcTemplate.execute("ALTER TABLE foods MODIFY COLUMN default_seed BIT NOT NULL DEFAULT 0");
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** 确保软删除字段有默认值。 */
+    private void ensureDeletedColumnDefault() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE foods MODIFY COLUMN deleted BIT NOT NULL DEFAULT 0");
         } catch (Exception ignored) {
         }
     }

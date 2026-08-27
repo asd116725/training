@@ -308,9 +308,14 @@ function normalizeMealEntry(entry: MealEntryResponse): MealEntry {
     id: String(entry.id),
     meal: mealTypeMap[entry.mealType] ?? 'breakfast',
     foodId: String(entry.foodId),
+    foodName: entry.foodName,
     quantity: entry.quantity ?? entry.grams,
     unitName: normalizeFoodUnitName(entry.unitName),
     grams: entry.grams,
+    calories: entry.calories,
+    protein: entry.protein,
+    carbs: entry.carbs,
+    fat: entry.fat,
   }
 }
 

@@ -55,6 +55,10 @@ public class Food {
     @Column(name = "default_seed", nullable = false)
     public boolean defaultSeed;
 
+    /** 是否已软删除。 */
+    @Column(nullable = false)
+    public boolean deleted;
+
     /** JPA 构造函数。 */
     protected Food() {
     }

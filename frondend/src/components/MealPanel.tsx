@@ -5,6 +5,7 @@ import {
   calculateEntryTotals,
   calculateFoodGrams,
   calculateFoodNutrition,
+  getEntryNutrition,
   mealLabels,
   roundOne,
   type Food,
@@ -476,7 +477,8 @@ function MealColumn({
         ) : (
           entries.map((entry) => {
             const food = foods.find((item) => item.id === entry.foodId)
-            const nutrition = food ? calculateFoodNutrition(food, entry.grams) : null
+            const nutrition = food ? calculateFoodNutrition(food, entry.grams) : getEntryNutrition(entry)
+            const foodName = food?.name ?? entry.foodName ?? '已删除食材'
             /** 餐食卡片状态类名。 */
             const itemClassName = [
               'meal-item',
@@ -499,7 +501,7 @@ function MealColumn({
               >
                 <div className="meal-item-main">
                   <div className="meal-item-title">
-                    <strong>{food?.name}</strong>
+                    <strong>{foodName}</strong>
                     <div className="meal-item-actions">
                       <button draggable={false} type="button" onClick={() => onEdit(entry)} aria-label="编辑餐食">
                         <Pencil size={14} />

@@ -55,7 +55,9 @@ CREATE TABLE IF NOT EXISTS foods (
   calories DOUBLE NOT NULL DEFAULT 0,
   remark VARCHAR(255) NOT NULL DEFAULT '',
   default_seed BIT NOT NULL DEFAULT 0,
+  deleted BIT NOT NULL DEFAULT 0,
   KEY idx_foods_user_id (user_id),
+  KEY idx_foods_user_deleted (user_id, deleted),
   CONSTRAINT fk_foods_user FOREIGN KEY (user_id) REFERENCES app_users (id)
 );
 

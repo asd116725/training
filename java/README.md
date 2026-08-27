@@ -37,6 +37,16 @@ DEEPSEEK_READ_TIMEOUT_MS=28000
 MYSQL_USER=root MYSQL_PASSWORD=你的密码 ./mvnw spring-boot:run
 ```
 
+## Caffeine 缓存 Demo
+
+项目内置了一个与现有业务隔离的 Caffeine Demo，展示查询缓存、主动更新、单条失效、全量清空和命中统计。接口默认关闭，只在启用 `caffeine-demo` Profile 时注册。
+
+```bash
+./mvnw -Dtest=CaffeineDemoProfileTest,CaffeineDemoServiceTest,CaffeineDemoControllerTest test
+```
+
+详细配置、接口调用步骤和原理说明见 [Caffeine 使用 Demo](docs/caffeine-demo.md)。
+
 ## 分层说明
 
 - `model`：JPA 实体和枚举。

@@ -31,13 +31,15 @@ public class FoodService {
     /** 查询当前用户食材。 */
     public List<FoodResponse> listFoods() {
         AppUser user = currentUserContext.get();
-        return foodRepository.findByUserOrderByIdAsc(user).stream().map(food -> toResponse(food, true)).toList();
+        return foodRepository.findByUserAndDeletedFalseOrderByIdAsc(user).stream()
+                .map(food -> toResponse(food, true))
+                .toList();
     }
 
     /** 查询公共食材库。 */
     public List<FoodResponse> listPublicFoods() {
         AppUser user = currentUserContext.get();
-        return foodRepository.findAll().stream()
+        return foodRepository.findByDeletedFalseOrderByIdAsc().stream()
                 .filter(food -> !food.defaultSeed)
                 .map(food -> toResponse(food, isOwnedBy(food, user)))
                 .toList();
@@ -83,18 +85,20 @@ public class FoodService {
 
     /** 删除食材。 */
     public void deleteFood(Long id) {
-        foodRepository.delete(getOwnedFood(id));
+        Food food = getOwnedFood(id);
+        food.deleted = true;
+        foodRepository.save(food);
     }
 
     /** 查询当前用户食材。 */
     public Food getOwnedFood(Long id) {
-        return foodRepository.findByIdAndUser(id, currentUserContext.get())
+        return foodRepository.findByIdAndUserAndDeletedFalse(id, currentUserContext.get())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "食材不存在"));
     }
 
     /** 按主键查询食材。 */
     public Food getFood(Long id) {
-        return foodRepository.findById(id)
+        return foodRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "食材不存在"));
     }
 

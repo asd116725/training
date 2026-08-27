@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
 /** 注册登录接口。 */
 @RestController
 @RequestMapping("/api/auth")
-public class AuthController {
+public class  AuthController {
 
     /** 注册登录服务。 */
     private final AuthService authService;
